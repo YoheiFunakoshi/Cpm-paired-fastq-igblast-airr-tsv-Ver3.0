@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- `productive`と`final_productive`の定義、R1/R2の採用・fallback規則、空欄と
+  `false`の違い、実タンパク質発現との解釈境界を文書化。
+- 4つのExcelをread-pair/UMIとproductive限定の2×2として整理し、全列の意味、
+  目的別の使い分け、productive限定前後を同じ観測単位で比較する方法を追記。
+
 ## 3.0.0 - 2026-08-17
 
 - IgBLAST前のUMI/全長配列collapseを廃止し、全保持read pairを1回だけ注釈する方式へ変更。

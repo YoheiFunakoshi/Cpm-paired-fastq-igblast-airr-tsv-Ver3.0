@@ -41,12 +41,52 @@ unique_v_gene_set + unique_j_gene_set + final_junction_aa
 - `final_junction_aa` must be canonical: present, no stop symbol, starts with
   C, ends with W or F, and is 5-40 amino acids long.
 - `integrated_counts` does not require `final_productive=true`.
-- `final_productive_counts` applies that additional filter and is a secondary
-  sensitivity table.
+- `final_productive_counts` applies that additional filter and is a derived
+  productive-filtered table.
 
 This is a clonotype definition, not whole-BCR nucleotide identity. Synonymous
 CDR3 nucleotide differences and SHM differences outside the key can therefore
 belong to the same clonotype.
+
+## Productive annotation and paired-read integration
+
+Ver3.0 does not independently infer productivity. It preserves the
+`productive` annotation emitted by IgBLAST for each R1 and R2 AIRR row.
+IgBLAST predicts a rearrangement as productive from properties that include an
+in-frame V(D)J junction, no internal stop codon, and no internal V-region frame
+shift. This is a sequence-based prediction of coding potential, not evidence
+that a protein was translated, folded, or expressed on a cell surface.
+
+`final_productive` is neither an R1-and-R2 logical AND nor a logical OR. R1
+and R2 are partial observations of the same input molecule. Ver3.0 applies the
+following rule:
+
+1. prefer the read selected for `final_junction_aa`;
+2. use that read's non-empty productive value;
+3. if it is missing, fall back to the opposite read;
+4. when both reads have the same junction amino-acid sequence but discordant
+   productive values, prefer R1;
+5. leave `final_productive` empty when neither read has a value.
+
+Consequently, a pair can have `final_productive=true` when the opposite read is
+false or missing. Missing does not mean false: it means that IgBLAST did not
+return a productive prediction for that partial read.
+AIRR TSV normally represents these values as `T`, `F`, and an empty field;
+`true` and `false` in this document denote the corresponding logical values.
+
+`final_junction_aa` is the AIRR JUNCTION amino-acid sequence, including the
+conserved C and W/F residues; it is not a full BCR protein sequence. The
+productive-filtered workbooks do not additionally require
+`complete_vdj=true`.
+
+The raw CPM R2 layout consumes 38 of the 301 sequenced bases with the anchor,
+UMI blocks, separators, and `TCTT`, leaving at most about 263 bases of BCR
+insert. R2 can therefore receive a V call without reaching enough J/junction
+sequence for a productive prediction. Requiring both reads to be productive is
+an optional stringent QC, not the Ver3.0 biological definition.
+
+References: [AIRR Rearrangement Schema](https://docs.airr-community.org/en/stable/datarep/rearrangements.html)
+and [NCBI IgBLAST productive update](https://blast.ncbi.nlm.nih.gov/doc/blast-news/2021-BLAST-News.html).
 
 ## Exact-UMI rule
 
@@ -114,6 +154,75 @@ inclusive_support_count = 5
 
 UMI A is counted once in each clonotype. Neither occurrence is discarded or
 globally reconciled.
+
+## Four Excel workbooks
+
+The four workbooks are not independent IgBLAST runs. They form a two-by-two
+view of the same integrated pairs.
+
+| Workbook | Main support counts reported | Included pairs | Primary use |
+|---|---|---|---|
+| `integrated_counts.xlsx` | read pair | V, J, and canonical junction AA present | RG-compatible read-pair comparison and audit |
+| `final_productive_counts.xlsx` | read pair | basic counts plus `final_productive=true` | productive-filtered RG comparison |
+| `umi_counts.xlsx` | exact raw UMI family, UMI-missing pair, and read pair | basic counts | CPM UMI-family support and PCR-duplication context |
+| `final_productive_umi_counts.xlsx` | exact raw UMI family, UMI-missing pair, and read pair | `final_productive=true` | productive-filtered CPM repertoire evaluation |
+
+Each row is one clonotype key:
+
+```text
+unique_v_gene_set + unique_j_gene_set + final_junction_aa
+```
+
+The row unit is a clonotype, while `read_pair_count`, `umi_family_count`, and
+`umi_missing_read_pair_count` are distinct support units.
+
+The two read-pair workbooks contain the same ten columns:
+
+- normalized V and J candidate sets and canonical final junction amino acid;
+- `read_pair_count`;
+- R1/R2 integration-status counts (`match`, `conflict`, `r1_only`, and
+  `r2_only`);
+- `productive_true_count` and `canonical_junction_aa_count`.
+
+`read_pair_count` can contain PCR duplicates and is not a molecule count.
+
+The two UMI workbooks contain 15 columns. In addition to the clonotype and
+integration-status fields, they report:
+
+- `umi_family_count`: distinct valid exact raw 12-mer UMIs in the clonotype;
+- `read_pair_count`: all retained countable pairs in the clonotype;
+- `umi_known_read_pair_count`: pairs with a valid UMI, including PCR copies;
+- `umi_missing_read_pair_count`: retained pairs without a usable UMI;
+- `inclusive_support_count`: UMI families plus UMI-missing pairs;
+- `inclusive_support_percent`: the share of the workbook's total inclusive
+  support.
+
+`inclusive_support_count` is deliberately a hybrid support measure, not a
+strict molecule count. `final_productive_umi_counts.xlsx` independently
+recomputes its UMI sets, missing counts, inclusive support, and percentages
+from productive pairs; it is not merely a row filter applied to
+`umi_counts.xlsx`.
+
+This is not a productive consensus call for an entire UMI family. If the same
+clonotype and UMI contain both productive and non-productive pairs, that UMI is
+counted once in the productive subset whenever at least one productive pair is
+present.
+
+For a study focused on potentially protein-coding repertoires,
+`final_productive_umi_counts.xlsx` can be the primary CPM analysis candidate,
+while the unfiltered workbooks remain the audit and sensitivity reference. To
+measure the effect of the productive filter, compare like with like:
+
+```text
+clonotype retention = productive workbook rows / unfiltered workbook rows
+read-pair retention = sum(productive read_pair_count) / sum(unfiltered read_pair_count)
+UMI-family retention = sum(productive umi_family_count) / sum(unfiltered umi_family_count)
+inclusive retention = sum(productive inclusive_support_count) / sum(unfiltered inclusive_support_count)
+```
+
+These denominators are different observation units and must not be
+interchanged. Removing low-support singleton clonotypes can reduce clonotype
+richness more than it reduces read-pair or UMI-family support.
 
 ## Data-retention invariants
 

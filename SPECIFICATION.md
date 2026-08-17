@@ -154,6 +154,34 @@ canonical junction AA:
 
 元のR1/R2 call、採用元、判断理由、競合状態を`integrated.tsv`へ保存する。
 
+### 8.3 Productive
+
+R1/R2の`productive`はIgBLAST AIRR出力を保持し、Ver3.0で独自に再判定しない。
+値は`true`、`false`、空欄を区別し、空欄を`false`として扱わない。AIRR TSVでは
+通常`T`、`F`、空欄として表現される。
+
+`final_productive`はR1/R2のAND判定でもOR判定でもない。8.1でjunction AAを採用したreadを
+`preferred_read`とし、次の規則で決める。
+
+1. R1/R2の両側にproductive値があり同値なら、その値とsource=`both`を採用する。
+2. `preferred_read`に値があれば、その値を採用する。
+3. `preferred_read=both`で値が異なる場合はR1を優先する。
+4. 優先側が空欄ならR2、次にR1の順で値のある側へfallbackする。
+5. 両側とも空欄なら`final_productive`も空欄とする。
+
+したがって、片側が`true`で反対側が`false`または空欄でも、`true`側が採用されれば
+`final_productive=true`になり得る。R1/R2は同一分子の部分配列であり、両側で
+productive判定を得ることをBCRの生物学的productive条件とはしない。
+
+IgBLASTのproductiveは、V(D)J配列がin-frame junction、内部stop codonなし、
+内部V frame shiftなし等からタンパク質をコードできると予測されたことを表す。
+実際のタンパク質発現を直接証明する値ではない。`final_junction_aa`は保存CとW/Fを
+含むAIRR JUNCTIONのアミノ酸配列であり、BCR全タンパク質配列ではない。
+`complete_vdj=true`はproductive表の追加条件にしない。
+
+参照: [AIRR Rearrangement Schema](https://docs.airr-community.org/en/stable/datarep/rearrangements.html)、
+[NCBI IgBLAST productive update](https://blast.ncbi.nlm.nih.gov/doc/blast-news/2021-BLAST-News.html)
+
 ## 9. BCR clonotype
 
 key:
@@ -198,7 +226,7 @@ canonical_junction_aa_count
 counts条件を通過した保持pair数であり、PCR duplicateを含み得る。
 
 `final_productive_counts`は`final_productive=true`のintegrated pairだけを同じkeyで
-再集計した二次確認表である。
+再集計したproductive限定の派生集計表である。
 
 ## 11. UMI counts
 
@@ -320,7 +348,33 @@ Ver3.0は`_umiSeq5` / `_umiNoCollapse`などmode suffixを新規出力名に付�
 1. `integrated_counts.xlsx`: RG互換read-pair比較
 2. `umi_counts.xlsx`: CPMのUMI familyとmissing支持
 3. `integrated.tsv`: pair単位の採用根拠・除外理由
-4. `final_productive_*`: productive限定感度確認
+4. `final_productive_*`: productiveな再構成候補を対象とする派生集計
+
+4つのExcelは同じintegrated pairから作る。
+
+| Excel | 列数 | 収載する主な支持量 | 収載条件 |
+|---|---:|---|---|
+| `integrated_counts.xlsx` | 10 | read pair | V集合、J集合、canonical final junction AAあり |
+| `final_productive_counts.xlsx` | 10 | read pair | 上記かつ`final_productive=true` |
+| `umi_counts.xlsx` | 15 | exact raw UMI family、UMI missing pair、read pair | 基本countsと同じ |
+| `final_productive_umi_counts.xlsx` | 15 | exact raw UMI family、UMI missing pair、read pair | `final_productive=true` |
+
+`final_productive_umi_counts`は通常UMI表の行を単純削除するのではなく、productive対象pair
+だけからUMI set、missing数、inclusive support、percentを独立に再計算する。
+UMI family全体のconsensusをproductive判定する処理ではない。同じclonotype・同じUMIに
+productive/nonproductive pairが混在する場合、productive pairが1件以上あれば、そのUMIは
+productive subset内で1 familyとして数える。
+
+productive限定を最終評価に使う場合も、通常表との減少を次の同単位で確認する。
+
+- clonotype行数
+- `read_pair_count`合計
+- `umi_family_count`合計
+- `umi_missing_read_pair_count`合計
+- `inclusive_support_count`合計
+
+clonotype行数の減少率と支持量の減少率は同義ではない。低支持singleton clonotypeが
+除外されると、clonotype行数の方が大きく減り得る。
 
 ## 14. manifest
 
@@ -389,6 +443,9 @@ Ver3.0はannotation-first, clonotype-aware UMI countingであり、UMI consensus
 - UMI missing pairは分子補正できない。
 - exact raw UMIはUMI sequencing errorを補正しない。
 - read-pair表はPCR duplicateを含む。
+- `productive=true`はIgBLASTによる配列上の予測であり、実タンパク質発現の証明ではない。
+- R1/R2は部分配列であるため、片側のproductiveが空欄でも元分子がnonproductiveとは
+  限らない。両側trueを必須にする解析は、標準表とは別の追加QCとして扱う。
 
 これらをpair-level audit tableと分離列で可視化する。将来consensusや近傍UMI補正を
 追加する場合は、Ver3.0既定値を黙って変えず、別名・別versionの方式として検証する。

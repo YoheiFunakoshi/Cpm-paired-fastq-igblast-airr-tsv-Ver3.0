@@ -51,6 +51,38 @@ unique_v_gene_set
 これはBCR全塩基配列の完全一致ではなく、clonotypeの定義です。同義塩基置換や
 key外のSHM差は同じclonotypeに入ることがあります。
 
+## Productiveの定義とR1/R2の扱い
+
+IgBLAST/AIRRの`productive`は、そのqueryのV(D)J配列が、in-frame junction、
+内部stop codonなし、V領域の内部frame shiftなしなどの条件から、タンパク質を
+コードできると**予測**されたことを表します。実際にタンパク質として発現した
+ことを直接証明する値ではありません。
+
+定義の背景は[AIRR Rearrangement Schema](https://docs.airr-community.org/en/stable/datarep/rearrangements.html)と
+[NCBI IgBLAST productive update](https://blast.ncbi.nlm.nih.gov/doc/blast-news/2021-BLAST-News.html)を参照してください。
+
+このソフトで集計keyに使う`final_junction_aa`は、保存CとW/Fを含むAIRRの
+JUNCTIONアミノ酸配列であり、BCR全タンパク質配列ではありません。また、
+`complete_vdj=true`はproductive表の追加条件にしていません。
+
+Ver3.0の`final_productive`は、R1とR2のAND判定でもOR判定でもありません。
+
+1. `final_junction_aa`を決めたreadを優先する。
+2. そのreadの`productive`値を`final_productive`へ採用する。
+3. 優先readに値がなければ、反対側の値へfallbackする。
+4. R1/R2のjunction AAが同じでproductive値だけが異なる場合はR1を優先する。
+
+したがって、R1=`true`、R2=`false`または空欄でも、R1が採用側なら
+`final_productive=true`になり得ます。空欄は`false`ではなく、IgBLASTがそのreadに
+値を出力しなかったことを表します。判定に必要な範囲の不足などが原因として
+考えられますが、空欄だけから原因は断定しません。AIRR TSVの実値は通常`T`、`F`、
+空欄であり、この説明の`true`/`false`はそれぞれの論理値を表します。
+
+CPM R2の301塩基には先頭38塩基のanchor/UMI/区切り配列が含まれるため、BCR insertは
+最大約263塩基です。R2はV callを得てもJ/junctionまで届かず、productiveが空欄に
+なることがあります。このため、R1/R2両方のproductiveを主解析の必須条件には
+しません。両方trueは必要に応じて`integrated.tsv`から確認する追加QCです。
+
 ## UMIの数え方
 
 - 同一clonotype内で同じ有効raw UMIが複数回あっても1 familyです。
@@ -92,41 +124,74 @@ sample.queries.fasta             # 保存を指定した場合のみ
 sample.run.json                  # 完了manifest
 ```
 
-### RG互換read-pair表
+### 4つのExcelの内容
 
-最初に次を確認します。
+4つは別々のIgBLAST解析ではありません。同じR1/R2統合結果を、集計する支持量と
+productive限定の有無で分けた2×2の集計表です。
 
-```text
-sample.integrated_counts.xlsx
-```
+| Excel | 収載する主な支持量 | 対象 | 主な用途 |
+|---|---|---|---|
+| `integrated_counts.xlsx` | read pair | V/J/canonical junction AAを持つ全採用pair | RG互換のread-pair比較、全体QC |
+| `final_productive_counts.xlsx` | read pair | 上記のうち`final_productive=true` | productive限定のRG比較 |
+| `umi_counts.xlsx` | exact raw UMI familyとUMI missing pair | 全採用pair | CPMのUMI支持とPCR重複の確認 |
+| `final_productive_umi_counts.xlsx` | exact raw UMI familyとUMI missing pair | `final_productive=true`のpair | productive pairから観測されたCPM UMI支持の評価 |
 
-列とclonotype keyはRG版の`integrated_counts`と同じです。RGとCPM Ver3.0を
-read-pair単位で比較する場合に使います。両方ともPCR重複を含むため、分子数とは
-解釈しません。
-
-### UMI表
-
-次に確認します。
+どのExcelでも1行は次の3項目で定義した1 BCR clonotypeです。
 
 ```text
-sample.umi_counts.xlsx
+unique_v_gene_set
++ unique_j_gene_set
++ final_junction_aa (canonical)
 ```
 
-主な列:
+1行の単位はclonotypeですが、`read_pair_count`、`umi_family_count`、
+`umi_missing_read_pair_count`は互いに異なる支持単位です。
 
-- `umi_family_count`: clonotype内のdistinctな完全一致raw UMI数
-- `read_pair_count`: counts条件を満たした保持pair数
-- `umi_known_read_pair_count`: UMIを抽出できた保持pair数
-- `umi_missing_read_pair_count`: UMIを抽出できなかった保持pair数
-- `inclusive_support_count`: family数とUMI missing pair数の和
-- `inclusive_support_percent`: 同じ表のinclusive support合計に対する割合
+read-pair表は次の10列です。
 
-### Productive限定表
+| 列 | 意味 |
+|---|---|
+| `unique_v_gene_set` / `unique_j_gene_set` | allele suffixを除去し正規化したV/J候補集合 |
+| `final_junction_aa (canonical)` | 採用されたcanonical junction AA |
+| `read_pair_count` | そのclonotypeを支持する保持pair数。PCR重複を含み、分子数ではない |
+| `match_count` | R1/R2のjunction AAが一致したpair数 |
+| `conflict_count` | R1/R2のjunction AAが異なり、統合規則で片側を採用したpair数 |
+| `r1_only_count` / `r2_only_count` | junction AAを片側だけから得たpair数 |
+| `productive_true_count` | `final_productive=true`だったpair数 |
+| `canonical_junction_aa_count` | canonical junction AAを持つpair数 |
 
-`final_productive_counts`と`final_productive_umi_counts`は、採用側の
-`final_productive=true`だけを同じkeyで再集計した二次確認表です。R1/R2を
-マージせず部分配列としてIgBLASTへ渡すため、基本解析ではproductiveを除外条件に
-しません。
+UMI表は上記のstatus/count列に、次の列を加えた15列です。
+
+| 列 | 意味 |
+|---|---|
+| `umi_family_count` | clonotype内のdistinctな完全一致raw 12-mer UMI数 |
+| `read_pair_count` | counts条件を満たした保持pair数 |
+| `umi_known_read_pair_count` | 有効UMIを持つ保持pair数。PCR重複を含む |
+| `umi_missing_read_pair_count` | 有効UMIを得られず、UMI familyへの分子補正はできないが削除せず保持したpair数 |
+| `inclusive_support_count` | `umi_family_count + umi_missing_read_pair_count` |
+| `inclusive_support_percent` | 同じ表のinclusive support合計に占める割合 |
+
+`final_productive_umi_counts`では、productive対象pairだけからUMI set、missing数、割合を
+独立に再計算します。UMI表の既定順は`inclusive_support_count`降順です。
+UMI familyだけで順位を見たい場合は`umi_family_count`で並べ替えます。
+
+これはUMI family全体のconsensusをproductive判定した表ではありません。同じclonotype・
+同じUMIに`T`と`F`のpairが混在しても、`T`のpairが1つ以上あれば、そのUMIは
+productive対象内で1 familyとして数えられます。
+
+目的別の確認先:
+
+- RGと同じread-pair単位: `integrated_counts.xlsx`
+- CPMのexact UMI family: `umi_counts.xlsx`
+- productiveなread-pairだけ: `final_productive_counts.xlsx`
+- productiveを主目的とするCPM解析の主解析候補: `final_productive_umi_counts.xlsx`
+
+この場合も、通常表は除外されたpairやclonotypeを確認する監査・感度参照として残します。
+
+productive限定による減少率はデータごとに異なります。必ず通常表とproductive表の
+clonotype数、`read_pair_count`合計、`umi_family_count`合計、
+`inclusive_support_count`合計を同じ単位同士で比較します。稀なsingleton clonotypeが
+除かれると、支持量の減少率よりclonotype種類数の減少率が大きくなることがあります。
 
 ### 追跡用表
 
