@@ -199,7 +199,7 @@ umi_family_percent
   = umi_family_count / sum(umi_family_count in that strict workbook)
 ```
 
-UMI-missing pairs contribute neither to the primary count nor to this
+UMI-missing pairs contribute neither to the strict family count nor to this
 denominator. A clonotype supported only by UMI-missing pairs is therefore absent
 from the strict view. This is an additional summary view, not deletion from
 `integrated.tsv`, and it does not change either inclusive UMI workbook.
@@ -239,20 +239,57 @@ inclusive_support_count = 5
 UMI A is counted once in each clonotype. Neither occurrence is discarded or
 globally reconciled.
 
+For a third clonotype supported by one UMI-missing pair:
+
+```text
+missing
+```
+
+the inclusive result is:
+
+```text
+read_pair_count = 1
+umi_family_count = 0
+umi_missing_read_pair_count = 1
+inclusive_support_count = 1
+```
+
+Assuming that all pairs in these three clonotypes have
+`final_productive=true`, the two productive UMI views are:
+
+| BCR clonotype | Exact UMI family count | Missing pairs | Inclusive support | Inclusive percent | Strict family count | Strict family percent |
+|---|---:|---:|---:|---:|---:|---:|
+| Pattern 1: A x3, B, missing x2 | 2 | 2 | 4 | 40.000000% | 2 | 33.333333% |
+| Pattern 2: C x2, D, E, A x2, missing | 4 | 1 | 5 | 50.000000% | 4 | 66.666667% |
+| Pattern 3: missing | 0 | 1 | 1 | 10.000000% | omitted | omitted |
+
+The inclusive denominator is `4 + 5 + 1 = 10`; the strict denominator is
+`2 + 4 = 6` exact UMI families. Pattern 3 is retained in the inclusive view but
+is absent from the strict view, reducing the displayed clonotype count from
+three to two. Its source pair remains in `integrated.tsv`. A pair for which a
+countable V/J/canonical-junction-AA key cannot be formed also remains in
+`integrated.tsv` with an exclusion reason but is absent from all six count
+workbooks.
+
+Because every pair in this example is productive, the corresponding unfiltered
+UMI workbooks contain the same values. When productive and non-productive pairs
+are mixed, the three productive workbooks are independently recomputed from
+only the `final_productive=true` pairs.
+
 ## Six Excel workbooks
 
 The six workbooks are not independent IgBLAST runs. They show read-pair,
 inclusive UMI, and strict exact-UMI-family views, each with and without the
 productive restriction.
 
-| Workbook | Main support counts reported | Included pairs | Primary use |
-|---|---|---|---|
-| `integrated_counts.xlsx` | read pair | V, J, and canonical junction AA present | RG-compatible read-pair comparison and audit |
-| `final_productive_counts.xlsx` | read pair | basic counts plus `final_productive=true` | productive-filtered RG comparison |
-| `umi_counts.xlsx` | exact raw UMI family, UMI-missing pair, and read pair | basic counts | CPM UMI-family support and PCR-duplication context |
-| `final_productive_umi_counts.xlsx` | exact raw UMI family, UMI-missing pair, and read pair | `final_productive=true` | productive-filtered CPM repertoire evaluation |
-| `exact_umi_family_counts.xlsx` | exact raw UMI family | `umi_family_count > 0` | strict valid-UMI-family abundance and percentage |
-| `final_productive_exact_umi_family_counts.xlsx` | exact raw UMI family | productive subset with `umi_family_count > 0` | productive-filtered strict UMI-family evaluation |
+| Workbook | Main support counts reported | Included pairs | Size and percentage columns | Primary use |
+|---|---|---|---|---|
+| `integrated_counts.xlsx` | read pair | V, J, and canonical junction AA present | `read_pair_count`; no percentage column | RG-compatible read-pair comparison and audit |
+| `final_productive_counts.xlsx` | read pair | basic counts plus `final_productive=true` | `read_pair_count`; no percentage column | productive-filtered RG comparison |
+| `umi_counts.xlsx` | exact raw UMI family, UMI-missing pair, and read pair | basic counts | `inclusive_support_count` / `inclusive_support_percent` | CPM UMI-family support and PCR-duplication context |
+| `final_productive_umi_counts.xlsx` | exact raw UMI family, UMI-missing pair, and read pair | `final_productive=true` | `inclusive_support_count` / `inclusive_support_percent` | primary productive CPM evaluation retaining UMI-missing evidence |
+| `exact_umi_family_counts.xlsx` | exact raw UMI family | `umi_family_count > 0` | `umi_family_count` / `umi_family_percent` | strict valid-UMI-family abundance and percentage |
+| `final_productive_exact_umi_family_counts.xlsx` | exact raw UMI family | productive subset with `umi_family_count > 0` | `umi_family_count` / `umi_family_percent` | productive-filtered strict UMI-family sensitivity analysis |
 
 Each row is one clonotype key:
 
@@ -307,10 +344,23 @@ clonotype and UMI contain both productive and non-productive pairs, that UMI is
 counted once in the productive subset whenever at least one productive pair is
 present.
 
-For a study focused on potentially protein-coding repertoires,
-`final_productive_umi_counts.xlsx` can be the primary CPM analysis candidate,
-while the unfiltered workbooks remain the audit and sensitivity reference. To
-measure the effect of the productive filter, compare like with like:
+For a study focused on potentially protein-coding repertoires that retains
+UMI-missing clonotypes, `final_productive_umi_counts.xlsx` is the primary CPM
+analysis workbook. Use `inclusive_support_count` for non-discarding hybrid
+support-based ordering and `inclusive_support_percent` for its within-workbook
+percentage; neither is an exact molecule measure. Use
+`final_productive_exact_umi_family_counts.xlsx` as the strict sensitivity view,
+with `umi_family_count` and `umi_family_percent`. Use
+`final_productive_counts.xlsx` for RG-compatible productive read-pair
+comparisons. The unfiltered workbooks remain the audit and sensitivity
+reference.
+
+Inclusive support is a non-discarding hybrid of exact UMI families and
+UMI-missing pairs, not an exact original-molecule count. Report the UMI-missing
+rate and review the strict sensitivity view for cross-sample comparisons,
+because different missing rates can bias inclusive sizes and percentages.
+
+To measure the effect of the productive filter, compare like with like:
 
 ```text
 clonotype retention = productive workbook rows / unfiltered workbook rows
@@ -323,12 +373,23 @@ These denominators are different observation units and must not be
 interchanged. Removing low-support singleton clonotypes can reduce clonotype
 richness more than it reduces read-pair or UMI-family support.
 
-For QASAS or another matching analysis, an inclusive-table matched-clonotype
-count and a strict-table UMI-family percentage may be reported side by side
-only as explicitly named, different metrics. The former answers how many
-clonotypes were detected while retaining missing-only evidence; the latter
-answers what share of valid exact UMI families matched. They must not be
-presented as one common observation unit. A strict abundance calculation uses
+For QASAS or another matching analysis, when the inclusive workbook is the
+primary analysis, calculate the two reported metrics from that same inclusive
+workbook:
+
+```text
+matched clonotype count = number of matched clonotype rows
+matched inclusive-support percentage
+  = sum(inclusive_support_count in matched rows)
+    / sum(inclusive_support_count in all rows) * 100
+```
+
+The first metric is a number of clonotype types; the second is a weighted share
+of inclusive support. They do not have the same meaning even though they come
+from one workbook. A strict-table UMI-family percentage may be reported
+separately as a sensitivity metric. An inclusive-table clonotype count and a
+strict-table percentage must not be presented as one common observation unit.
+A strict abundance calculation uses
 `umi_family_count` or `umi_family_percent`, never `read_pair_count` or
 `inclusive_support_count`.
 

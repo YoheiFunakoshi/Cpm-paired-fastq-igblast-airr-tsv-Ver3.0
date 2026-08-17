@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- clonotypeごとにUMIを独立集計する具体例を追加。同じUMIが別clonotypeで干渉しないこと、
+  UMI missing-only clonotypeが包含UMI表には残りstrict表からは除外されること、割合分母を明記。
+- 6つのExcelそれぞれについて、大小・割合を見る列を追記。
+- productiveかつUMI missingを捨てない解析では`final_productive_umi_counts.xlsx`を主解析、
+  `inclusive_support_count` / `inclusive_support_percent`を主指標とし、productive strict表を
+  感度解析、productive read-pair表をRG比較に使う方針を明記。
+
 ## 3.0.1 - 2026-08-17
 
 - `productive`と`final_productive`の定義、R1/R2の採用・fallback規則、空欄と
