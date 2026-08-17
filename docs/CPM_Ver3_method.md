@@ -103,6 +103,41 @@ Ver3.0 does not merge one-base-neighbor UMIs. It records the raw UMI so that a
 future, separately named error-correction mode can be evaluated without
 changing the Ver3.0 default semantics.
 
+### Interpretation note for exact UMI counting
+
+Exact counting is simple and reproducible and avoids automatically merging
+truly distinct neighboring UMIs. However, UMI read, PCR, or synthesis errors
+may create low-support UMIs, especially singletons, that are counted as
+additional families and may overestimate `umi_family_count`. Conversely,
+merging every one-base neighbor can merge truly distinct molecules. Therefore,
+`umi_family_count` and `umi_family_percent` are support measures based on
+observed exact raw UMI families, not error-corrected exact molecule counts.
+
+In the same validation run used below, an exploratory UMI-tools-like
+directional sensitivity analysis treated each clonotype as one bundle. It
+created an outgoing edge `A -> B` between Hamming-distance-one UMIs when
+`count(A) >= 2 * count(B) - 1`, then assigned nodes reachable through outgoing
+edges from unassigned seeds ordered by decreasing count and raw-UMI lexical
+order for ties. This condition can group one-read versus one-read neighbors.
+The analysis reduced the productive strict UMI-family total from 74,968 to
+67,503, a decrease of 7,465 families (9.958%).
+The inclusive-support total retaining UMI-missing pairs decreased from 139,146
+to 131,681 (5.365%). The top five clonotypes retained the same order, and 96
+of the top 100 clonotypes were shared. Of 348,928 productive, countable read
+pairs with a valid UMI, 7,540 pairs (2.161%) supported the 7,465 non-representative
+child UMI nodes. Of those child nodes, 7,394 (99.05%) had support from only one
+read pair within the clonotype.
+
+These values quantify sensitivity to a different counting assumption in one
+validation run. The 9.958% decrease is neither a measured sequencing-error rate
+for UMI bases or reads nor evidence that the corrected count is the true
+molecule count. This exploratory correction is not part of the Ver3.0
+pipeline, official outputs, or manifest counting semantics. Official Ver3.0
+outputs retain the uncorrected exact-raw-UMI definition. See the
+[UMI-tools method descriptions](https://umi-tools.readthedocs.io/en/stable/the_methods.html)
+and the [pRESTO UMI guidance](https://presto.readthedocs.io/en/latest/examples/umi.html)
+for examples of exact and optional corrected approaches.
+
 ## UMI unavailable
 
 If a usable UMI cannot be extracted, the read pair is not discarded. It

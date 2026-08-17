@@ -93,6 +93,12 @@ TATCAACGCAGAGTGGCCAT + NNNN + T + NNNN + T + NNNN + TCTT + insert
 
 1塩基違いを含む近傍UMI補正は行わない。サンプル全体でUMIを統合しない。
 
+完全一致法は、真に異なる近接UMIを自動的に誤統合しない一方、UMIの読み取り、PCR、
+UMI合成過程で生じた低頻度UMIを追加familyとして数え、`umi_family_count`を過大にする
+可能性がある。したがって、`umi_family_count`と`umi_family_percent`は観測された
+exact raw UMI familyに基づく支持量であり、誤り補正済みの厳密な元分子数ではない。
+近傍補正を正式計数へ導入する場合は、別のcounting semanticsとversionで定義する。
+
 ## 6. query作成
 
 既定:
@@ -307,6 +313,22 @@ pairは0であり、全missing pairは
 検体間でpair単位のmissing率を比較し、大きな差がある場合はlibrary構造、anchor設定、
 read向き、品質を再確認する。missing率が異なる検体間では、hybridな
 `inclusive_support_count`の比較にbiasが入り得る。
+
+同じ検証runについて、正式出力とは別の探索的感度解析として、各clonotypeを1 bundleとし、
+Hamming distance 1のUMI間に`count(A) >= 2 * count(B) - 1`を満たす
+向き`A -> B`のedgeを作った。count降順・同数はraw UMI文字列順の未割当nodeから、
+外向きedgeで到達できるnodeを同じgroupへ割り当てるUMI-tools directional風groupingを
+仮適用した。この条件では1 read対1 readの近傍UMIもgroup化され得る。
+productive strict UMI family総数は74,968から67,503へ7,465 family（9.958%）減少し、
+UMI missing pairを保持するinclusive support総数は139,146から131,681へ5.365%減少した。
+上位5 clonotypeの順位は不変で、上位100のうち96 clonotypeが共通であった。productiveかつ
+count対象で有効UMIを持つ348,928 pairのうち、代表以外の7,465 child UMI nodeを
+支持したpairは合計7,540 pair（2.161%）であった。そのchild node 7,465個のうち
+7,394個（99.05%）は、clonotype内で1 pairだけに支持されたsingletonであった。
+
+この9.958%はUMI塩基またはreadのシーケンスエラー率ではなく、特定の別集計規則に対する
+family総数の感度差である。補正後の67,503も真の元分子数と断定しない。この探索的補正は
+Ver3.0のpipeline、正式出力、manifestのcounting semanticsには含まれない。
 
 `inclusive_support_percent`は表内の`inclusive_support_count`合計に対する割合を
 小数点以下6桁でTSVへ書く。XLSXでは0～1の数値percent cellとして保存する。
