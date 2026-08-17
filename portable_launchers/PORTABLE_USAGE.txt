@@ -1,0 +1,74 @@
+CPM Paired Fastq IgBLAST AIRR tsv Ver3.0 portable usage
+
+Standard launcher:
+   Open CPM Paired Fastq IgBLAST AIRR tsv Ver3.0.cmd
+
+Use this .cmd launcher on this PC, on USB, and on another Windows PC.
+After program updates, close the GUI and reopen it from this .cmd file.
+
+1. Create or use a clean release folder that contains only the launchers and runtime folders listed below. Do not copy a working folder that also contains FASTQ, Results, history, Word/PowerPoint files, or other research data.
+2. Keep the internal folder names unchanged:
+   - app
+   - python
+   - tools\igblast-1.21.0
+   - refdata\IgBlast_refdata_edit_imgt
+3. Put the CPM R1/R2 FASTQ files anywhere you can browse from the GUI.
+4. Start the GUI with:
+   Open CPM Paired Fastq IgBLAST AIRR tsv Ver3.0.cmd
+5. The GUI should automatically use:
+   - python\pythonw.exe
+   - tools\igblast-1.21.0\bin\igblastn.exe
+   - refdata\IgBlast_refdata_edit_imgt\db\IMGT_IGHV.imgt
+   - refdata\IgBlast_refdata_edit_imgt\db\IMGT_IGHD.imgt
+   - refdata\IgBlast_refdata_edit_imgt\db\IMGT_IGHJ.imgt
+   - refdata\IgBlast_refdata_edit_imgt\optional_file\human_gl.aux
+6. Output files are written to:
+   Results of CPM Paired Fastq IgBLAST AIRR tsv Ver3.0
+
+Ver3 analysis rule:
+   - Every retained R1/R2 pair is sent through IgBLAST once.
+   - RG-compatible R1, R2, integrated read-pair, and counts outputs are created first.
+   - A clonotype is the exact combination of V gene candidate set, J gene candidate set, and canonical final junction amino-acid sequence.
+   - Within each clonotype independently, each exact raw 12-base UMI containing only A/C/G/T is one family.
+   - The same raw UMI in different clonotypes is counted independently in each clonotype.
+   - UMI-missing pairs are retained and reported separately; they are not called UMI families.
+   - Ver3 does not create legacy umiSeq5, umiStrict, or umiNoCollapse branches and does not use full-read R1/R2 Hamming-distance collapse.
+
+The single result set includes:
+   - <sample>.airr.tsv
+   - <sample>.R1.airr.tsv
+   - <sample>.R2.airr.tsv
+   - <sample>.integrated.tsv
+   - <sample>.integrated_counts.tsv/xlsx
+   - <sample>.final_productive_counts.tsv/xlsx
+   - <sample>.umi_counts.tsv/xlsx
+   - <sample>.final_productive_umi_counts.tsv/xlsx
+   - <sample>.run.json completion manifest
+
+The standard integrated_counts output does not exclude by productive.
+The final_productive outputs are independently recalculated from pairs whose adopted junction_aa side has final_productive=true.
+
+Safety behavior in version 3.0.0:
+   - R1 and R2 must be different files; available mate metadata is checked.
+   - Existing outputs require confirmation in the GUI. CLI requires --overwrite.
+   - All intermediate files are built in the local work directory. Final files appear only after the complete single run succeeds.
+   - Do not move, replace, or edit the selected R1/R2 FASTQ files while analysis is running; detected changes abort the complete output set.
+   - <sample>.run.json is published last. If it is absent, do not use that output set as a completed analysis.
+   - The GUI cannot be closed while an analysis is running.
+
+The .lnk shortcut may not work after moving the folder because Windows shortcuts can store absolute paths.
+Use the .cmd launcher on another PC.
+
+Disk space note:
+Large FASTQ files can create large AIRR TSV, R1/R2 TSV, integrated TSV, counts XLSX, and optional query FASTA files.
+If IgBLAST reports "ios_base::badbit set: iostream stream error" or "Likely output/write failure", free disk space and rerun.
+Temporary failed/interrupted work folders are under:
+   AppData\Local\PairedFastqIgblastAirrTsv\work
+
+日本語メモ:
+- 通常は "Open CPM Paired Fastq IgBLAST AIRR tsv Ver3.0.cmd" から起動してください。
+- Ver3では、保持された全R1/R2ペアを1回だけIgBLASTでアノテーションします。
+- RG互換のread-pair出力を先に作り、各V/J/canonical junction-AA clonotype内でA/C/G/Tのみのexact raw 12-mer UMIを独立に数えます。
+- UMIなし、またはNなど曖昧塩基を含むペアも捨てず、UMI familyとは分けて保持します。
+- 旧umiSeq5/umiStrict/umiNoCollapseの複数条件出力と、R1/R2全長Hamming距離によるcollapseは行いません。
+- USBへはapp/python/tools/refdataとlauncherだけを入れたclean releaseをコピーし、FASTQ・Results・履歴資料を含む作業フォルダ全体はコピーしないでください。
