@@ -8,6 +8,8 @@ import uuid
 from unittest.mock import Mock, patch
 
 from airr_igblast_paired.gui import APP_TITLE, App, _normalize_run_values, _preflight_run_errors, main
+from airr_igblast_paired.pipeline import MultiPipelineResult, NamedPipelineResult, PipelineResult
+from airr_igblast_paired.prepare import PrepareStats
 
 
 def form_values() -> dict[str, object]:
@@ -218,6 +220,41 @@ class GuiTests(unittest.TestCase):
         self.assertNotIn("umi_collapse_mismatches", kwargs)
         self.assertNotIn("umi_sequence_distance", kwargs)
         app.messages.put.assert_called_once()
+
+    def test_run_pipeline_completion_lists_both_exact_umi_family_views(self) -> None:
+        app = App.__new__(App)
+        app.messages = Mock()
+        result = PipelineResult(
+            stats=PrepareStats(),
+            command=["igblastn"],
+            query_fasta=None,
+            output_tsv=Path("sample.airr.tsv"),
+            exact_umi_family_counts_tsv=Path("sample.exact_umi_family_counts.tsv"),
+            exact_umi_family_counts_xlsx=Path("sample.exact_umi_family_counts.xlsx"),
+            final_productive_exact_umi_family_counts_tsv=Path(
+                "sample.final_productive_exact_umi_family_counts.tsv"
+            ),
+            final_productive_exact_umi_family_counts_xlsx=Path(
+                "sample.final_productive_exact_umi_family_counts.xlsx"
+            ),
+        )
+        multi_result = MultiPipelineResult(
+            runs=(NamedPipelineResult("test", "", result),),
+            manifest_path=Path("sample.run.json"),
+        )
+
+        with patch(
+            "airr_igblast_paired.gui.run_cpm_umi_igblast_outputs",
+            return_value=multi_result,
+        ):
+            app._run_pipeline(form_values(), False)
+
+        kind, message = app.messages.put.call_args.args[0]
+        self.assertEqual(kind, "done")
+        self.assertIn("sample.exact_umi_family_counts.tsv", message)
+        self.assertIn("sample.exact_umi_family_counts.xlsx", message)
+        self.assertIn("sample.final_productive_exact_umi_family_counts.tsv", message)
+        self.assertIn("sample.final_productive_exact_umi_family_counts.xlsx", message)
 
     def test_main_uses_ver3_window_title(self) -> None:
         root = Mock()

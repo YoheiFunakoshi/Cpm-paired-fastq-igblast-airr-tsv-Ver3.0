@@ -4,7 +4,7 @@ CPM社のpaired FASTQを、非マージのR1/R2としてIgBLAST AIRR TSVへ変�
 RG版と同じread-pair集計と、BCR clonotype内のUMI family集計を1回の解析から
 作成するWindows向けツールです。
 
-実装version: **3.0.0**
+実装version: **3.0.1**
 
 ## Ver3.0の基本方針
 
@@ -103,6 +103,19 @@ inclusive_support_count
 `inclusive_support_count`は、UMI familyと補正不能read pairを合わせた包含的な
 支持量です。厳密な分子数とは呼びません。
 
+これとは別に、有効UMI familyだけを主支持量とするstrict表も同じ解析から出力します。
+
+```text
+umi_family_percent
+= umi_family_count / strict表内のumi_family_count合計
+```
+
+strict表では`umi_family_count > 0`のclonotypeだけを収載し、UMI missing pairは
+主countにも割合の分母にも加えません。したがって、UMI missingだけで支持された
+clonotypeはstrict表には現れません。元pairを`integrated.tsv`から削除する処理ではなく、
+既存の包含UMI表も変更しません。
+これは旧`umiStrict`の復活ではなく、全pairを注釈した後に作る5列の追加集計です。
+
 ### UMI missing率とinclusive support内の割合
 
 UMI missingについては、処理段階と分母が異なる次の値を区別します。
@@ -165,14 +178,19 @@ sample.umi_counts.tsv
 sample.umi_counts.xlsx
 sample.final_productive_umi_counts.tsv
 sample.final_productive_umi_counts.xlsx
+sample.exact_umi_family_counts.tsv
+sample.exact_umi_family_counts.xlsx
+sample.final_productive_exact_umi_family_counts.tsv
+sample.final_productive_exact_umi_family_counts.xlsx
 sample.queries.fasta             # 保存を指定した場合のみ
 sample.run.json                  # 完了manifest
 ```
 
-### 4つのExcelの内容
+### 6つのExcelの内容
 
-4つは別々のIgBLAST解析ではありません。同じR1/R2統合結果を、集計する支持量と
-productive限定の有無で分けた2×2の集計表です。
+6つは別々のIgBLAST解析ではありません。同じR1/R2統合結果を、read pair、
+UMI missingを残す包含UMI、valid UMI familyだけを主支持量にするstrict UMIの3種類と、
+productive限定の有無で分けた集計表です。
 
 | Excel | 収載する主な支持量 | 対象 | 主な用途 |
 |---|---|---|---|
@@ -180,6 +198,8 @@ productive限定の有無で分けた2×2の集計表です。
 | `final_productive_counts.xlsx` | read pair | 上記のうち`final_productive=true` | productive限定のRG比較 |
 | `umi_counts.xlsx` | exact raw UMI familyとUMI missing pair | 全採用pair | CPMのUMI支持とPCR重複の確認 |
 | `final_productive_umi_counts.xlsx` | exact raw UMI familyとUMI missing pair | `final_productive=true`のpair | productive pairから観測されたCPM UMI支持の評価 |
+| `exact_umi_family_counts.xlsx` | exact raw UMI family | productive限定なしで`umi_family_count > 0`のclonotype | UMI missingを割合から除いたstrictな分子支持評価 |
+| `final_productive_exact_umi_family_counts.xlsx` | exact raw UMI family | `final_productive=true`のpairから得た`umi_family_count > 0`のclonotype | productiveかつstrictなUMI-family評価 |
 
 どのExcelでも1行は次の3項目で定義した1 BCR clonotypeです。
 
@@ -189,8 +209,9 @@ unique_v_gene_set
 + final_junction_aa (canonical)
 ```
 
-1行の単位はclonotypeですが、`read_pair_count`、`umi_family_count`、
-`umi_missing_read_pair_count`は互いに異なる支持単位です。
+1行の単位はclonotypeです。各表に収載される`read_pair_count`、
+`umi_family_count`、`umi_missing_read_pair_count`は互いに異なる支持単位であり、
+すべての表がこれら全列を持つわけではありません。
 
 read-pair表は次の10列です。
 
@@ -205,7 +226,7 @@ read-pair表は次の10列です。
 | `productive_true_count` | `final_productive=true`だったpair数 |
 | `canonical_junction_aa_count` | canonical junction AAを持つpair数 |
 
-UMI表は上記のstatus/count列に、次の列を加えた15列です。
+2つの包含UMI表は上記のstatus/count列に、次の列を加えた15列です。
 
 | 列 | 意味 |
 |---|---|
@@ -220,6 +241,22 @@ UMI表は上記のstatus/count列に、次の列を加えた15列です。
 独立に再計算します。UMI表の既定順は`inclusive_support_count`降順です。
 UMI familyだけで順位を見たい場合は`umi_family_count`で並べ替えます。
 
+strict UMI表は次の5列だけを収載します。
+
+| 列 | 意味 |
+|---|---|
+| `unique_v_gene_set` / `unique_j_gene_set` | allele suffixを除去し正規化したV/J候補集合 |
+| `final_junction_aa (canonical)` | 採用されたcanonical junction AA |
+| `umi_family_count` | clonotype内のdistinctな完全一致raw 12-mer UMI数 |
+| `umi_family_percent` | strict表内の`umi_family_count`合計に占める割合。UMI missing pairは分子にも分母にも入らない |
+
+strict UMI表では`umi_family_count > 0`の行だけを残し、`umi_family_count`降順に並べます。
+productive strict表は、productive対象pairからUMI familyを独立に再計算した後に
+同じstrict条件を適用します。
+
+ここで「productive限定なし」は`final_productive=false`だけという意味ではなく、
+通常counts対象のtrue/false/空欄をすべて含む意味です。
+
 これはUMI family全体のconsensusをproductive判定した表ではありません。同じclonotype・
 同じUMIに`T`と`F`のpairが混在しても、`T`のpairが1つ以上あれば、そのUMIは
 productive対象内で1 familyとして数えられます。
@@ -227,11 +264,20 @@ productive対象内で1 familyとして数えられます。
 目的別の確認先:
 
 - RGと同じread-pair単位: `integrated_counts.xlsx`
-- CPMのexact UMI family: `umi_counts.xlsx`
+- UMI missingも保持したCPMの包含UMI支持: `umi_counts.xlsx`
 - productiveなread-pairだけ: `final_productive_counts.xlsx`
 - productiveを主目的とするCPM解析の主解析候補: `final_productive_umi_counts.xlsx`
+- UMI missingを割合から完全に除くstrict評価: `exact_umi_family_counts.xlsx`
+- productiveかつstrictな評価: `final_productive_exact_umi_family_counts.xlsx`
 
 この場合も、通常表は除外されたpairやclonotypeを確認する監査・感度参照として残します。
+
+QASASなどで一致clonotype数と割合を評価するときは、指標名と分母を明示します。
+包含表のclonotype数はUMI missingだけのclonotypeも保持する検出指標、strict表の
+`umi_family_percent`は有効exact UMI familyだけを分母にした分子支持割合です。
+両者を併記することはできますが、同じ単位の1指標として混ぜません。strictな割合を
+求める場合はstrict表の`umi_family_count`または`umi_family_percent`を使用し、
+`read_pair_count`や`inclusive_support_count`をstrictな分子数として扱いません。
 
 productive限定による減少率はデータごとに異なります。必ず通常表とproductive表の
 clonotype数、`read_pair_count`合計、`umi_family_count`合計、
@@ -251,7 +297,9 @@ clonotype数、`read_pair_count`合計、`umi_family_count`合計、
    - 同じclonotype定義・read-pair単位で比較
 2. CPM Ver3.0 `integrated_counts` vs `umi_counts`
    - CPM内でPCR重複の影響を確認
-3. RG vs CPM Ver3.0 `umi_counts`
+3. CPM Ver3.0 `umi_counts` vs `exact_umi_family_counts`
+   - UMI missingを保持した包含支持と、有効UMI familyだけのstrict支持の差を確認
+4. RG vs CPM Ver3.0 `umi_counts`または`exact_umi_family_counts`
    - CDR3/V/Jや順位は比較可能。ただしRGはread pair、CPMはUMI familyなので、
      絶対数を同一単位として扱わない
 

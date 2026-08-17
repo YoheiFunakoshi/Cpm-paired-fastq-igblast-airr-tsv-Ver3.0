@@ -51,6 +51,10 @@ class PipelineResult:
     umi_counts_xlsx: Path | None = None
     final_productive_umi_counts_tsv: Path | None = None
     final_productive_umi_counts_xlsx: Path | None = None
+    exact_umi_family_counts_tsv: Path | None = None
+    exact_umi_family_counts_xlsx: Path | None = None
+    final_productive_exact_umi_family_counts_tsv: Path | None = None
+    final_productive_exact_umi_family_counts_xlsx: Path | None = None
     pair_summary_stats: PairSummaryStats | None = None
 
 
@@ -133,6 +137,10 @@ def _build_derived_outputs(
     Path,
     Path,
     Path,
+    Path,
+    Path,
+    Path,
+    Path,
     PairSummaryStats,
 ]:
     derived_paths, pair_stats = split_and_integrate_airr_tsv(output_tsv)
@@ -148,6 +156,10 @@ def _build_derived_outputs(
         derived_paths.umi_counts_xlsx,
         derived_paths.final_productive_umi_counts_tsv,
         derived_paths.final_productive_umi_counts_xlsx,
+        derived_paths.exact_umi_family_counts_tsv,
+        derived_paths.exact_umi_family_counts_xlsx,
+        derived_paths.final_productive_exact_umi_family_counts_tsv,
+        derived_paths.final_productive_exact_umi_family_counts_xlsx,
         pair_stats,
     )
 
@@ -172,6 +184,10 @@ _RESULT_PATH_FIELDS = (
     "umi_counts_xlsx",
     "final_productive_umi_counts_tsv",
     "final_productive_umi_counts_xlsx",
+    "exact_umi_family_counts_tsv",
+    "exact_umi_family_counts_xlsx",
+    "final_productive_exact_umi_family_counts_tsv",
+    "final_productive_exact_umi_family_counts_xlsx",
 )
 
 
@@ -194,6 +210,10 @@ def planned_paired_output_paths(
         derived.umi_counts_xlsx,
         derived.final_productive_umi_counts_tsv,
         derived.final_productive_umi_counts_xlsx,
+        derived.exact_umi_family_counts_tsv,
+        derived.exact_umi_family_counts_xlsx,
+        derived.final_productive_exact_umi_family_counts_tsv,
+        derived.final_productive_exact_umi_family_counts_xlsx,
     ]
     if query_fasta:
         paths.append(Path(query_fasta))
@@ -344,6 +364,14 @@ def _result_with_final_paths(
         umi_counts_xlsx=derived.umi_counts_xlsx,
         final_productive_umi_counts_tsv=derived.final_productive_umi_counts_tsv,
         final_productive_umi_counts_xlsx=derived.final_productive_umi_counts_xlsx,
+        exact_umi_family_counts_tsv=derived.exact_umi_family_counts_tsv,
+        exact_umi_family_counts_xlsx=derived.exact_umi_family_counts_xlsx,
+        final_productive_exact_umi_family_counts_tsv=(
+            derived.final_productive_exact_umi_family_counts_tsv
+        ),
+        final_productive_exact_umi_family_counts_xlsx=(
+            derived.final_productive_exact_umi_family_counts_xlsx
+        ),
         pair_summary_stats=result.pair_summary_stats,
     )
 
@@ -500,6 +528,11 @@ def _write_cpm_run_manifest(
                 "anchor_max_mismatches": umi_anchor_max_mismatches,
                 "counting_unit": "exact_raw_umi_per_clonotype",
                 "missing_umi": "retained_as_read_pair_support_not_umi_family",
+                "exact_umi_family_views": {
+                    "row_filter": "umi_family_count > 0",
+                    "counting_unit": "exact_raw_umi_family",
+                    "percentage_denominator": "sum(umi_family_count)",
+                },
             },
             "igblast": {
                 "executable": igblast_config.igblastn,
@@ -828,6 +861,10 @@ def run_paired_igblast(
                 umi_counts_xlsx,
                 final_productive_umi_counts_tsv,
                 final_productive_umi_counts_xlsx,
+                exact_umi_family_counts_tsv,
+                exact_umi_family_counts_xlsx,
+                final_productive_exact_umi_family_counts_tsv,
+                final_productive_exact_umi_family_counts_xlsx,
                 pair_stats,
             ) = _build_derived_outputs(scratch_output)
             observed_airr_rows = pair_stats.r1_rows + pair_stats.r2_rows
@@ -852,6 +889,14 @@ def run_paired_igblast(
                 umi_counts_xlsx=umi_counts_xlsx,
                 final_productive_umi_counts_tsv=final_productive_umi_counts_tsv,
                 final_productive_umi_counts_xlsx=final_productive_umi_counts_xlsx,
+                exact_umi_family_counts_tsv=exact_umi_family_counts_tsv,
+                exact_umi_family_counts_xlsx=exact_umi_family_counts_xlsx,
+                final_productive_exact_umi_family_counts_tsv=(
+                    final_productive_exact_umi_family_counts_tsv
+                ),
+                final_productive_exact_umi_family_counts_xlsx=(
+                    final_productive_exact_umi_family_counts_xlsx
+                ),
                 pair_summary_stats=pair_stats,
             )
             if progress_callback:

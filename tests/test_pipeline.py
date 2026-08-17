@@ -636,6 +636,14 @@ class PipelineTests(unittest.TestCase):
             self.assertTrue((root / "results" / "sample.umi_counts.xlsx").exists())
             self.assertTrue((root / "results" / "sample.final_productive_umi_counts.tsv").exists())
             self.assertTrue((root / "results" / "sample.final_productive_umi_counts.xlsx").exists())
+            self.assertTrue((root / "results" / "sample.exact_umi_family_counts.tsv").exists())
+            self.assertTrue((root / "results" / "sample.exact_umi_family_counts.xlsx").exists())
+            self.assertTrue(
+                (root / "results" / "sample.final_productive_exact_umi_family_counts.tsv").exists()
+            )
+            self.assertTrue(
+                (root / "results" / "sample.final_productive_exact_umi_family_counts.xlsx").exists()
+            )
             self.assertEqual(result.pair_summary_stats.total_pairs, 1)
             self.assertEqual(result.pair_summary_stats.included_in_counts, 1)
             self.assertEqual(result.pair_summary_stats.unique_final_clonotypes, 1)
@@ -747,6 +755,10 @@ class PipelineTests(unittest.TestCase):
                 "sample.umi_counts.xlsx",
                 "sample.final_productive_umi_counts.tsv",
                 "sample.final_productive_umi_counts.xlsx",
+                "sample.exact_umi_family_counts.tsv",
+                "sample.exact_umi_family_counts.xlsx",
+                "sample.final_productive_exact_umi_family_counts.tsv",
+                "sample.final_productive_exact_umi_family_counts.xlsx",
                 "sample.queries.fasta",
                 "sample.run.json",
             ],
@@ -807,6 +819,14 @@ class PipelineTests(unittest.TestCase):
             self.assertTrue((root / "results" / "sample.umi_counts.xlsx").exists())
             self.assertTrue((root / "results" / "sample.final_productive_umi_counts.tsv").exists())
             self.assertTrue((root / "results" / "sample.final_productive_umi_counts.xlsx").exists())
+            self.assertTrue((root / "results" / "sample.exact_umi_family_counts.tsv").exists())
+            self.assertTrue((root / "results" / "sample.exact_umi_family_counts.xlsx").exists())
+            self.assertTrue(
+                (root / "results" / "sample.final_productive_exact_umi_family_counts.tsv").exists()
+            )
+            self.assertTrue(
+                (root / "results" / "sample.final_productive_exact_umi_family_counts.xlsx").exists()
+            )
             published_names = [path.name for path in (root / "results").iterdir()]
             self.assertFalse(any("umiSeq" in name or "umiNoCollapse" in name for name in published_names))
             self.assertEqual(result.runs[0].result.stats.umi_extracted_pairs, 1)
@@ -837,6 +857,14 @@ class PipelineTests(unittest.TestCase):
             self.assertNotIn("output_mode", manifest["settings"]["umi"])
             self.assertNotIn("sequence_distance", manifest["settings"]["umi"])
             self.assertNotIn("collapse_mismatches", manifest["settings"]["umi"])
+            self.assertEqual(
+                manifest["settings"]["umi"]["exact_umi_family_views"],
+                {
+                    "row_filter": "umi_family_count > 0",
+                    "counting_unit": "exact_raw_umi_family",
+                    "percentage_denominator": "sum(umi_family_count)",
+                },
+            )
             self.assertEqual(manifest["settings"]["qc"]["min_length"], 0)
             self.assertEqual(manifest["settings"]["igblast"]["germline_db_v"], "v")
             self.assertEqual(
@@ -860,6 +888,10 @@ class PipelineTests(unittest.TestCase):
                     "umi_counts_xlsx",
                     "final_productive_umi_counts_tsv",
                     "final_productive_umi_counts_xlsx",
+                    "exact_umi_family_counts_tsv",
+                    "exact_umi_family_counts_xlsx",
+                    "final_productive_exact_umi_family_counts_tsv",
+                    "final_productive_exact_umi_family_counts_xlsx",
                     "query_fasta",
                 },
             )

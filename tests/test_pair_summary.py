@@ -10,6 +10,7 @@ import zipfile
 
 from airr_igblast_paired.pair_summary import (
     COUNTS_FIELDNAMES,
+    EXACT_UMI_FAMILY_COUNTS_FIELDNAMES,
     UMI_COUNTS_FIELDNAMES,
     _format_percent,
     default_derived_tsv_paths,
@@ -113,6 +114,22 @@ class PairSummaryTests(unittest.TestCase):
         self.assertEqual(
             paths.final_productive_umi_counts_xlsx,
             Path("results") / "sample.final_productive_umi_counts.xlsx",
+        )
+        self.assertEqual(
+            paths.exact_umi_family_counts_tsv,
+            Path("results") / "sample.exact_umi_family_counts.tsv",
+        )
+        self.assertEqual(
+            paths.exact_umi_family_counts_xlsx,
+            Path("results") / "sample.exact_umi_family_counts.xlsx",
+        )
+        self.assertEqual(
+            paths.final_productive_exact_umi_family_counts_tsv,
+            Path("results") / "sample.final_productive_exact_umi_family_counts.tsv",
+        )
+        self.assertEqual(
+            paths.final_productive_exact_umi_family_counts_xlsx,
+            Path("results") / "sample.final_productive_exact_umi_family_counts.xlsx",
         )
 
     def test_pair_id_and_umi_parsing_follow_cpm_query_name_contract(self) -> None:
@@ -285,6 +302,45 @@ class PairSummaryTests(unittest.TestCase):
                 "66.666667%",
             )
 
+    def test_exact_umi_family_outputs_exclude_missing_only_clonotypes(self) -> None:
+        with test_directory() as directory:
+            input_tsv = Path(directory) / "sample.airr.tsv"
+            write_airr(
+                input_tsv,
+                [
+                    "p_a1|R2|UMI=AAAAAAAAAAAA\tIGHV1\tIGHD1\tIGHJ4\tAAA\tCFAMILYAW\tT",
+                    "p_a2|R2|UMI=AAAAAAAAAAAA\tIGHV1\tIGHD1\tIGHJ4\tAAA\tCFAMILYAW\tT",
+                    "p_a_missing|R2|UMI=NA\tIGHV1\tIGHD1\tIGHJ4\tAAA\tCFAMILYAW\tT",
+                    "np_b|R2|UMI=CCCCCCCCCCCC\tIGHV2\tIGHD2\tIGHJ6\tCCC\tCFAMILYBF\tF",
+                    "p_missing_only|R2|UMI=NA\tIGHV3\tIGHD3\tIGHJ5\tGGG\tCMISSINGW\tT",
+                ],
+            )
+
+            paths, _stats = split_and_integrate_airr_tsv(input_tsv)
+            all_fields, all_rows = read_tsv(paths.exact_umi_family_counts_tsv)
+            productive_fields, productive_rows = read_tsv(
+                paths.final_productive_exact_umi_family_counts_tsv
+            )
+
+            self.assertEqual(all_fields, EXACT_UMI_FAMILY_COUNTS_FIELDNAMES)
+            self.assertEqual(productive_fields, EXACT_UMI_FAMILY_COUNTS_FIELDNAMES)
+            self.assertEqual(
+                [row["final_junction_aa"] for row in all_rows],
+                ["CFAMILYAW", "CFAMILYBF"],
+            )
+            self.assertEqual(
+                [row["umi_family_percent"] for row in all_rows],
+                ["50.000000%", "50.000000%"],
+            )
+            self.assertEqual(len(productive_rows), 1)
+            self.assertEqual(productive_rows[0]["final_junction_aa"], "CFAMILYAW")
+            self.assertEqual(productive_rows[0]["umi_family_count"], "1")
+            self.assertEqual(productive_rows[0]["umi_family_percent"], "100.000000%")
+            self.assertNotIn(
+                "CMISSINGW",
+                {row["final_junction_aa"] for row in all_rows},
+            )
+
     def test_gene_sets_canonical_filter_and_r1_r2_rule_match_rg(self) -> None:
         with test_directory() as directory:
             input_tsv = Path(directory) / "sample.airr.tsv"
@@ -336,6 +392,8 @@ class PairSummaryTests(unittest.TestCase):
                 paths.final_productive_counts_xlsx,
                 paths.umi_counts_xlsx,
                 paths.final_productive_umi_counts_xlsx,
+                paths.exact_umi_family_counts_xlsx,
+                paths.final_productive_exact_umi_family_counts_xlsx,
             ):
                 self.assertTrue(path.exists())
 
@@ -352,6 +410,18 @@ class PairSummaryTests(unittest.TestCase):
                 self.assertIn("Ver3.0", core_xml)
                 self.assertNotIn("Ver2.0", app_xml + core_xml)
 
+            with zipfile.ZipFile(
+                paths.final_productive_exact_umi_family_counts_xlsx
+            ) as archive:
+                sheet_xml = archive.read("xl/worksheets/sheet1.xml").decode("utf-8")
+                styles_xml = archive.read("xl/styles.xml").decode("utf-8")
+                self.assertIn("umi_family_percent", sheet_xml)
+                self.assertIn('<col min="1" max="1" width="24" customWidth="1"/>', sheet_xml)
+                self.assertIn('<col min="5" max="5" width="20" customWidth="1"/>', sheet_xml)
+                self.assertIn('<c r="E2" s="1"><v>1.000000</v></c>', sheet_xml)
+                self.assertNotIn('<c r="E2" t="inlineStr"', sheet_xml)
+                self.assertIn('formatCode="0.000000%"', styles_xml)
+
     def test_empty_input_writes_headers_for_every_count_output(self) -> None:
         with test_directory() as directory:
             input_tsv = Path(directory) / "empty.airr.tsv"
@@ -365,6 +435,14 @@ class PairSummaryTests(unittest.TestCase):
                 (paths.final_productive_counts_tsv, COUNTS_FIELDNAMES),
                 (paths.umi_counts_tsv, UMI_COUNTS_FIELDNAMES),
                 (paths.final_productive_umi_counts_tsv, UMI_COUNTS_FIELDNAMES),
+                (
+                    paths.exact_umi_family_counts_tsv,
+                    EXACT_UMI_FAMILY_COUNTS_FIELDNAMES,
+                ),
+                (
+                    paths.final_productive_exact_umi_family_counts_tsv,
+                    EXACT_UMI_FAMILY_COUNTS_FIELDNAMES,
+                ),
             ):
                 fields, rows = read_tsv(path)
                 self.assertEqual(fields, expected_fields)

@@ -1,11 +1,15 @@
 # Changelog
 
-## Unreleased
+## 3.0.1 - 2026-08-17
 
 - `productive`と`final_productive`の定義、R1/R2の採用・fallback規則、空欄と
   `false`の違い、実タンパク質発現との解釈境界を文書化。
-- 4つのExcelをread-pair/UMIとproductive限定の2×2として整理し、全列の意味、
+- 既存4つのExcelをread-pair/UMIとproductive限定の2×2として整理し、全列の意味、
   目的別の使い分け、productive限定前後を同じ観測単位で比較する方法を追記。
+- 既存の包含UMI表を変更せず、valid exact UMI familyだけをcount・割合分母にする
+  `exact_umi_family_counts`と`final_productive_exact_umi_family_counts`をTSV/XLSXで追加。
+- exact UMI family表は`umi_family_count > 0`のclonotypeだけを5列で出力し、
+  `umi_family_percent`を各表のfamily合計から独立計算する。
 
 ## 3.0.0 - 2026-08-17
 

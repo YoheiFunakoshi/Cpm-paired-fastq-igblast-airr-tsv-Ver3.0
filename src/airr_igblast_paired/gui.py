@@ -353,8 +353,10 @@ class App(ttk.Frame):
         umi_label = ttk.Label(
             self,
             text=(
-                "Exact UMI count: identical raw UMIs are one family only within each "
-                "V/J/canonical junction-AA clonotype; UMI-missing pairs are retained"
+                "Inclusive exact UMI count: identical raw UMIs are one family only within each "
+                "V/J/canonical junction-AA clonotype; UMI-missing pairs are retained. "
+                "Separate exact_umi_family_counts files keep only clonotypes supported "
+                "by at least one valid exact UMI family"
             ),
             wraplength=760,
         )
@@ -677,22 +679,42 @@ class App(ttk.Frame):
             if result.counts_xlsx:
                 message += f"\nCounts Excel: {result.counts_xlsx}"
             if getattr(result, "umi_counts_tsv", None):
-                message += f"\nExact UMI Counts TSV: {result.umi_counts_tsv}"
+                message += f"\nInclusive exact UMI Counts TSV: {result.umi_counts_tsv}"
             if getattr(result, "umi_counts_xlsx", None):
-                message += f"\nExact UMI Counts Excel: {result.umi_counts_xlsx}"
+                message += f"\nInclusive exact UMI Counts Excel: {result.umi_counts_xlsx}"
             if result.final_productive_counts_tsv:
                 message += f"\nFinal productive Counts TSV: {result.final_productive_counts_tsv}"
             if result.final_productive_counts_xlsx:
                 message += f"\nFinal productive Counts Excel: {result.final_productive_counts_xlsx}"
             if getattr(result, "final_productive_umi_counts_tsv", None):
                 message += (
-                    "\nFinal productive exact UMI Counts TSV: "
+                    "\nFinal productive inclusive exact UMI Counts TSV: "
                     f"{result.final_productive_umi_counts_tsv}"
                 )
             if getattr(result, "final_productive_umi_counts_xlsx", None):
                 message += (
-                    "\nFinal productive exact UMI Counts Excel: "
+                    "\nFinal productive inclusive exact UMI Counts Excel: "
                     f"{result.final_productive_umi_counts_xlsx}"
+                )
+            if getattr(result, "exact_umi_family_counts_tsv", None):
+                message += (
+                    "\nStrict exact UMI-family Counts TSV: "
+                    f"{result.exact_umi_family_counts_tsv}"
+                )
+            if getattr(result, "exact_umi_family_counts_xlsx", None):
+                message += (
+                    "\nStrict exact UMI-family Counts Excel: "
+                    f"{result.exact_umi_family_counts_xlsx}"
+                )
+            if getattr(result, "final_productive_exact_umi_family_counts_tsv", None):
+                message += (
+                    "\nFinal productive strict exact UMI-family Counts TSV: "
+                    f"{result.final_productive_exact_umi_family_counts_tsv}"
+                )
+            if getattr(result, "final_productive_exact_umi_family_counts_xlsx", None):
+                message += (
+                    "\nFinal productive strict exact UMI-family Counts Excel: "
+                    f"{result.final_productive_exact_umi_family_counts_xlsx}"
                 )
             if pair_stats:
                 message += (

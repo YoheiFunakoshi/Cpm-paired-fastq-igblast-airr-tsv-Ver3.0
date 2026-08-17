@@ -1,6 +1,6 @@
 # CPM Paired Fastq IgBLAST AIRR tsv Ver3.0 仕様書
 
-実装version: **3.0.0**
+実装version: **3.0.1**
 仕様日: **2026-08-17**
 
 ## 1. 目的
@@ -37,6 +37,8 @@ YoheiFunakoshi/Cpm-paired-fastq-igblast-airr-tsv-Ver3.0
 | raw UMI | CPM R2から抽出して補正せず記録した12塩基文字列 |
 | UMI family | 1つのBCR clonotype内で観測されたdistinctな有効raw UMI |
 | UMI missing pair | 有効12-mer UMIを得られなかったが保持されたpair |
+| inclusive UMI表 | UMI familyとUMI missing pairを分離列で残す包含集計 |
+| exact UMI family表 | 有効UMI familyだけを主countと割合分母にするstrict集計 |
 
 read pair、UMI family、UMI missing pairは異なる観測単位である。
 
@@ -319,6 +321,47 @@ read向き、品質を再確認する。missing率が異なる検体間では、
 `final_productive_umi_counts`はproductive対象行からUMI set、missing数、割合を
 独立に再計算する。
 
+### 11.1 Exact UMI family counts
+
+包含UMI表を変更せず、同じ集計からstrictなexact UMI family表を追加する。
+
+収載条件:
+
+```text
+umi_family_count > 0
+```
+
+出力列:
+
+```text
+unique_v_gene_set
+unique_j_gene_set
+final_junction_aa
+umi_family_count
+umi_family_percent
+```
+
+割合:
+
+```text
+umi_family_percent
+  = umi_family_count / sum(umi_family_count in the same exact-UMI-family table)
+```
+
+UMI missing pairは`umi_family_count`にも割合分母にも加えない。UMI missingだけで
+支持されたclonotypeはexact UMI family表には収載しない。ただし元pairを
+`integrated.tsv`や包含UMI表から削除せず、既存の`umi_counts`と
+`final_productive_umi_counts`も変更しない。
+
+`final_productive_exact_umi_family_counts`は、productive対象pairからUMI setを
+独立に再計算した後、`umi_family_count > 0`条件を適用する。通常exact表の単純な
+行filterではない。
+
+既定sort:
+
+1. `umi_family_count`降順
+2. V、J、junction AA昇順
+
 ## 12. ユーザー例
 
 Pattern 1:
@@ -370,6 +413,10 @@ sample.umi_counts.tsv
 sample.umi_counts.xlsx
 sample.final_productive_umi_counts.tsv
 sample.final_productive_umi_counts.xlsx
+sample.exact_umi_family_counts.tsv
+sample.exact_umi_family_counts.xlsx
+sample.final_productive_exact_umi_family_counts.tsv
+sample.final_productive_exact_umi_family_counts.xlsx
 sample.queries.fasta                 # 保存指定時のみ
 sample.run.json
 ```
@@ -381,10 +428,11 @@ Ver3.0は`_umiSeq5` / `_umiNoCollapse`などmode suffixを新規出力名に付�
 
 1. `integrated_counts.xlsx`: RG互換read-pair比較
 2. `umi_counts.xlsx`: CPMのUMI familyとmissing支持
-3. `integrated.tsv`: pair単位の採用根拠・除外理由
-4. `final_productive_*`: productiveな再構成候補を対象とする派生集計
+3. `exact_umi_family_counts.xlsx`: valid exact UMI familyだけのstrict支持と割合
+4. `integrated.tsv`: pair単位の採用根拠・除外理由
+5. `final_productive_*`: productiveな再構成候補を対象とする派生集計
 
-4つのExcelは同じintegrated pairから作る。
+6つのExcelは同じintegrated pairから作る。
 
 | Excel | 列数 | 収載する主な支持量 | 収載条件 |
 |---|---:|---|---|
@@ -392,12 +440,22 @@ Ver3.0は`_umiSeq5` / `_umiNoCollapse`などmode suffixを新規出力名に付�
 | `final_productive_counts.xlsx` | 10 | read pair | 上記かつ`final_productive=true` |
 | `umi_counts.xlsx` | 15 | exact raw UMI family、UMI missing pair、read pair | 基本countsと同じ |
 | `final_productive_umi_counts.xlsx` | 15 | exact raw UMI family、UMI missing pair、read pair | `final_productive=true` |
+| `exact_umi_family_counts.xlsx` | 5 | exact raw UMI family、同表family割合 | productive限定なしで`umi_family_count > 0` |
+| `final_productive_exact_umi_family_counts.xlsx` | 5 | productive対象のexact raw UMI family、同表family割合 | productive対象で`umi_family_count > 0` |
 
 `final_productive_umi_counts`は通常UMI表の行を単純削除するのではなく、productive対象pair
 だけからUMI set、missing数、inclusive support、percentを独立に再計算する。
 UMI family全体のconsensusをproductive判定する処理ではない。同じclonotype・同じUMIに
 productive/nonproductive pairが混在する場合、productive pairが1件以上あれば、そのUMIは
 productive subset内で1 familyとして数える。
+
+exact UMI family表では、UMI missing pairは主count・割合・分母へ入らない。
+`exact_umi_family_counts`のproductive限定なしは`final_productive=false`限定ではなく、
+通常counts対象のtrue/false/空欄を含む。
+包含表のclonotype数とexact表の`umi_family_percent`をQASAS等で併記する場合は、
+前者をUMI missing-onlyも残す検出指標、後者を有効exact UMI familyだけの支持割合と
+明記し、1つの共通単位として混ぜない。strictな大小関係には`umi_family_count`または
+`umi_family_percent`を使う。
 
 productive限定を最終評価に使う場合も、通常表との減少を次の同単位で確認する。
 
@@ -417,8 +475,9 @@ clonotype行数の減少率と支持量の減少率は同義ではない。低�
 必須識別情報:
 
 - `manifest_schema_version = 2`
-- `software_version = 3.0.0`
+- `software_version = 3.0.1`
 - `counting_semantics = cpm_v3_read_pair_and_exact_raw_umi_per_clonotype_v1`
+- `settings.umi.exact_umi_family_views`にrow filter、counting unit、割合分母を記録
 - 開始時入力path/size/mtime
 - query/QC/UMI抽出/IgBLAST設定
 - prepare/pair-summary統計
@@ -464,6 +523,9 @@ sequence clusterを残した。Ver3.0は全pairを注釈し、clonotype内exact 
 数える。UMI family数、read-pair数、順位、ファイル名、manifest semanticsは
 数値互換ではない。
 
+`exact_umi_family_counts`は注釈後にvalid exact UMI familyだけを5列へ投影した表であり、
+Ver2.0の`umiStrict`や全長read Hamming距離collapseを復活させるものではない。
+
 旧結果と統合・比較する場合は、元FASTQをVer3.0で再解析するか、Ver2/Ver3を
 別methodとして明示する。
 
@@ -494,6 +556,9 @@ Ver3.0はannotation-first, clonotype-aware UMI countingであり、UMI consensus
 - 1塩基違いUMIが別familyになる。
 - 同じUMIが別clonotypeでそれぞれ数えられる。
 - UMI missing/曖昧UMIのpairが削除されず別計数される。
+- exact UMI family表が5列で、`umi_family_count=0`行を含まない。
+- `umi_family_percent`の分母が各exact UMI family表の`umi_family_count`合計である。
+- productive exact UMI family表がproductive対象pairから独立再計算される。
 - counts外BCR rowが`integrated.tsv`に残る。
 - productive限定表が対象行から独立再計算される。
 - XLSX percentが数値cellである。

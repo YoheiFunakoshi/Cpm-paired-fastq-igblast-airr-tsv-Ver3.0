@@ -213,6 +213,20 @@ def _run(args: argparse.Namespace) -> int:
             print(f"wrote {result.final_productive_umi_counts_tsv}", file=sys.stderr)
         if result.final_productive_umi_counts_xlsx:
             print(f"wrote {result.final_productive_umi_counts_xlsx}", file=sys.stderr)
+        if result.exact_umi_family_counts_tsv:
+            print(f"wrote {result.exact_umi_family_counts_tsv}", file=sys.stderr)
+        if result.exact_umi_family_counts_xlsx:
+            print(f"wrote {result.exact_umi_family_counts_xlsx}", file=sys.stderr)
+        if result.final_productive_exact_umi_family_counts_tsv:
+            print(
+                f"wrote {result.final_productive_exact_umi_family_counts_tsv}",
+                file=sys.stderr,
+            )
+        if result.final_productive_exact_umi_family_counts_xlsx:
+            print(
+                f"wrote {result.final_productive_exact_umi_family_counts_xlsx}",
+                file=sys.stderr,
+            )
         if result.pair_summary_stats:
             print(
                 "pair summary: "

@@ -27,6 +27,10 @@ class DerivedTsvPaths:
     umi_counts_xlsx: Path
     final_productive_umi_counts_tsv: Path
     final_productive_umi_counts_xlsx: Path
+    exact_umi_family_counts_tsv: Path
+    exact_umi_family_counts_xlsx: Path
+    final_productive_exact_umi_family_counts_tsv: Path
+    final_productive_exact_umi_family_counts_xlsx: Path
 
 
 @dataclass(frozen=True)
@@ -68,6 +72,18 @@ def default_derived_tsv_paths(output_tsv: str | Path) -> DerivedTsvPaths:
         final_productive_umi_counts_xlsx=output.with_name(
             f"{sample}.final_productive_umi_counts.xlsx"
         ),
+        exact_umi_family_counts_tsv=output.with_name(
+            f"{sample}.exact_umi_family_counts.tsv"
+        ),
+        exact_umi_family_counts_xlsx=output.with_name(
+            f"{sample}.exact_umi_family_counts.xlsx"
+        ),
+        final_productive_exact_umi_family_counts_tsv=output.with_name(
+            f"{sample}.final_productive_exact_umi_family_counts.tsv"
+        ),
+        final_productive_exact_umi_family_counts_xlsx=output.with_name(
+            f"{sample}.final_productive_exact_umi_family_counts.xlsx"
+        ),
     )
 
 
@@ -89,6 +105,10 @@ def split_and_integrate_airr_tsv(
         derived.umi_counts_xlsx,
         derived.final_productive_umi_counts_tsv,
         derived.final_productive_umi_counts_xlsx,
+        derived.exact_umi_family_counts_tsv,
+        derived.exact_umi_family_counts_xlsx,
+        derived.final_productive_exact_umi_family_counts_tsv,
+        derived.final_productive_exact_umi_family_counts_xlsx,
     ):
         path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -135,6 +155,32 @@ def split_and_integrate_airr_tsv(
                 sheet_name="final_productive_umi_counts",
                 header_labels=COUNTS_XLSX_HEADER_LABELS,
                 percentage_fields=UMI_COUNTS_XLSX_PERCENTAGE_FIELDS,
+            )
+            _write_exact_umi_family_counts_tsv(
+                derived.exact_umi_family_counts_tsv,
+                [],
+            )
+            write_rows_xlsx(
+                derived.exact_umi_family_counts_xlsx,
+                EXACT_UMI_FAMILY_COUNTS_FIELDNAMES,
+                [],
+                sheet_name="exact_umi_family_counts",
+                header_labels=COUNTS_XLSX_HEADER_LABELS,
+                percentage_fields=EXACT_UMI_FAMILY_XLSX_PERCENTAGE_FIELDS,
+                column_widths=EXACT_UMI_FAMILY_XLSX_COLUMN_WIDTHS,
+            )
+            _write_exact_umi_family_counts_tsv(
+                derived.final_productive_exact_umi_family_counts_tsv,
+                [],
+            )
+            write_rows_xlsx(
+                derived.final_productive_exact_umi_family_counts_xlsx,
+                EXACT_UMI_FAMILY_COUNTS_FIELDNAMES,
+                [],
+                sheet_name="productive_exact_umi_counts",
+                header_labels=COUNTS_XLSX_HEADER_LABELS,
+                percentage_fields=EXACT_UMI_FAMILY_XLSX_PERCENTAGE_FIELDS,
+                column_widths=EXACT_UMI_FAMILY_XLSX_COLUMN_WIDTHS,
             )
             return derived, PairSummaryStats(0, 0, 0, 0, 0, 0, 0, 0)
 
@@ -218,6 +264,36 @@ def split_and_integrate_airr_tsv(
         sheet_name="final_productive_umi_counts",
         header_labels=COUNTS_XLSX_HEADER_LABELS,
         percentage_fields=UMI_COUNTS_XLSX_PERCENTAGE_FIELDS,
+    )
+    exact_umi_family_counts_rows = _exact_umi_family_counts_rows(umi_counts_rows)
+    _write_exact_umi_family_counts_tsv(
+        derived.exact_umi_family_counts_tsv,
+        exact_umi_family_counts_rows,
+    )
+    write_rows_xlsx(
+        derived.exact_umi_family_counts_xlsx,
+        EXACT_UMI_FAMILY_COUNTS_FIELDNAMES,
+        exact_umi_family_counts_rows,
+        sheet_name="exact_umi_family_counts",
+        header_labels=COUNTS_XLSX_HEADER_LABELS,
+        percentage_fields=EXACT_UMI_FAMILY_XLSX_PERCENTAGE_FIELDS,
+        column_widths=EXACT_UMI_FAMILY_XLSX_COLUMN_WIDTHS,
+    )
+    final_productive_exact_umi_family_counts_rows = _exact_umi_family_counts_rows(
+        final_productive_umi_counts_rows
+    )
+    _write_exact_umi_family_counts_tsv(
+        derived.final_productive_exact_umi_family_counts_tsv,
+        final_productive_exact_umi_family_counts_rows,
+    )
+    write_rows_xlsx(
+        derived.final_productive_exact_umi_family_counts_xlsx,
+        EXACT_UMI_FAMILY_COUNTS_FIELDNAMES,
+        final_productive_exact_umi_family_counts_rows,
+        sheet_name="productive_exact_umi_counts",
+        header_labels=COUNTS_XLSX_HEADER_LABELS,
+        percentage_fields=EXACT_UMI_FAMILY_XLSX_PERCENTAGE_FIELDS,
+        column_widths=EXACT_UMI_FAMILY_XLSX_COLUMN_WIDTHS,
     )
     conflicts = sum(1 for row in integrated_rows if row["junction_aa_status"] == "conflict")
     included = sum(1 for row in integrated_rows if row["include_in_counts"] == "true")
@@ -579,11 +655,28 @@ UMI_COUNTS_FIELDNAMES = [
 ]
 
 
+EXACT_UMI_FAMILY_COUNTS_FIELDNAMES = [
+    "unique_v_gene_set",
+    "unique_j_gene_set",
+    "final_junction_aa",
+    "umi_family_count",
+    "umi_family_percent",
+]
+
+
 COUNTS_XLSX_HEADER_LABELS = {
     "final_junction_aa": "final_junction_aa (canonical)",
 }
 
 UMI_COUNTS_XLSX_PERCENTAGE_FIELDS = {"inclusive_support_percent"}
+EXACT_UMI_FAMILY_XLSX_PERCENTAGE_FIELDS = {"umi_family_percent"}
+EXACT_UMI_FAMILY_XLSX_COLUMN_WIDTHS = {
+    "unique_v_gene_set": 24,
+    "unique_j_gene_set": 20,
+    "final_junction_aa": 34,
+    "umi_family_count": 20,
+    "umi_family_percent": 20,
+}
 
 
 def _counts_rows(
@@ -729,6 +822,36 @@ def _umi_counts_rows(
     return output_rows
 
 
+def _exact_umi_family_counts_rows(
+    umi_counts_rows: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    """Return only clonotypes supported by at least one valid exact raw UMI."""
+
+    rows = [row for row in umi_counts_rows if int(row["umi_family_count"]) > 0]
+    rows.sort(
+        key=lambda item: (
+            -int(item["umi_family_count"]),
+            item["unique_v_gene_set"],
+            item["unique_j_gene_set"],
+            item["final_junction_aa"],
+        )
+    )
+    umi_family_total = sum(int(row["umi_family_count"]) for row in rows)
+    return [
+        {
+            "unique_v_gene_set": row["unique_v_gene_set"],
+            "unique_j_gene_set": row["unique_j_gene_set"],
+            "final_junction_aa": row["final_junction_aa"],
+            "umi_family_count": row["umi_family_count"],
+            "umi_family_percent": _format_percent(
+                int(row["umi_family_count"]),
+                umi_family_total,
+            ),
+        }
+        for row in rows
+    ]
+
+
 def _write_counts_tsv(path: Path, rows: list[dict[str, str]]) -> None:
     with path.open("wt", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=COUNTS_FIELDNAMES, delimiter="\t", lineterminator="\n")
@@ -741,6 +864,21 @@ def _write_umi_counts_tsv(path: Path, rows: list[dict[str, str]]) -> None:
         writer = csv.DictWriter(
             handle,
             fieldnames=UMI_COUNTS_FIELDNAMES,
+            delimiter="\t",
+            lineterminator="\n",
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _write_exact_umi_family_counts_tsv(
+    path: Path,
+    rows: list[dict[str, str]],
+) -> None:
+    with path.open("wt", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=EXACT_UMI_FAMILY_COUNTS_FIELDNAMES,
             delimiter="\t",
             lineterminator="\n",
         )

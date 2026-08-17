@@ -179,6 +179,31 @@ References: [abstar UMI support](https://abstar.readthedocs.io/en/stable/umis.ht
 [MIGEC documentation](https://migec.readthedocs.io/_/downloads/en/latest/pdf/),
 and [10x Genomics assay-specific QC example](https://assets.ctfassets.net/an68im79xiti/1R7z9gj36IkuqRpdo2W8Un/fe76580732b3de5c449340278975a658/CG000475_TechNote_ChromiumNextGEM_SC3-_CMOWebSummary_Rev_B.pdf).
 
+## Strict exact-UMI-family view
+
+The inclusive UMI workbooks remain unchanged and retain UMI-missing support.
+The same run also writes two convenience views for analyses that require a
+denominator made only from valid exact UMI families:
+
+- `exact_umi_family_counts.xlsx` without a productive restriction, including
+  true, false, and missing productive annotations where otherwise countable;
+- `final_productive_exact_umi_family_counts.xlsx` for the independently
+  recalculated productive subset.
+
+Only clonotypes with `umi_family_count > 0` are included. Each strict workbook
+contains five columns: normalized V and J candidate sets, canonical final
+junction amino acid, `umi_family_count`, and `umi_family_percent`.
+
+```text
+umi_family_percent
+  = umi_family_count / sum(umi_family_count in that strict workbook)
+```
+
+UMI-missing pairs contribute neither to the primary count nor to this
+denominator. A clonotype supported only by UMI-missing pairs is therefore absent
+from the strict view. This is an additional summary view, not deletion from
+`integrated.tsv`, and it does not change either inclusive UMI workbook.
+
 ## Examples
 
 For one clonotype:
@@ -214,10 +239,11 @@ inclusive_support_count = 5
 UMI A is counted once in each clonotype. Neither occurrence is discarded or
 globally reconciled.
 
-## Four Excel workbooks
+## Six Excel workbooks
 
-The four workbooks are not independent IgBLAST runs. They form a two-by-two
-view of the same integrated pairs.
+The six workbooks are not independent IgBLAST runs. They show read-pair,
+inclusive UMI, and strict exact-UMI-family views, each with and without the
+productive restriction.
 
 | Workbook | Main support counts reported | Included pairs | Primary use |
 |---|---|---|---|
@@ -225,6 +251,8 @@ view of the same integrated pairs.
 | `final_productive_counts.xlsx` | read pair | basic counts plus `final_productive=true` | productive-filtered RG comparison |
 | `umi_counts.xlsx` | exact raw UMI family, UMI-missing pair, and read pair | basic counts | CPM UMI-family support and PCR-duplication context |
 | `final_productive_umi_counts.xlsx` | exact raw UMI family, UMI-missing pair, and read pair | `final_productive=true` | productive-filtered CPM repertoire evaluation |
+| `exact_umi_family_counts.xlsx` | exact raw UMI family | `umi_family_count > 0` | strict valid-UMI-family abundance and percentage |
+| `final_productive_exact_umi_family_counts.xlsx` | exact raw UMI family | productive subset with `umi_family_count > 0` | productive-filtered strict UMI-family evaluation |
 
 Each row is one clonotype key:
 
@@ -245,7 +273,7 @@ The two read-pair workbooks contain the same ten columns:
 
 `read_pair_count` can contain PCR duplicates and is not a molecule count.
 
-The two UMI workbooks contain 15 columns. In addition to the clonotype and
+The two inclusive UMI workbooks contain 15 columns. In addition to the clonotype and
 integration-status fields, they report:
 
 - `umi_family_count`: distinct valid exact raw 12-mer UMIs in the clonotype;
@@ -261,6 +289,18 @@ strict molecule count. `final_productive_umi_counts.xlsx` independently
 recomputes its UMI sets, missing counts, inclusive support, and percentages
 from productive pairs; it is not merely a row filter applied to
 `umi_counts.xlsx`.
+
+The two strict exact-UMI-family workbooks contain only five columns:
+
+- normalized V and J candidate sets and canonical final junction amino acid;
+- `umi_family_count`;
+- `umi_family_percent`, whose denominator is the sum of `umi_family_count` in
+  that strict workbook.
+
+They contain only `umi_family_count > 0` rows and are sorted primarily by
+`umi_family_count` descending. Their TSV companions use the same five-column
+schema. `final_productive_exact_umi_family_counts` is derived from UMI families
+recomputed in the productive subset before the strict row filter is applied.
 
 This is not a productive consensus call for an entire UMI family. If the same
 clonotype and UMI contain both productive and non-productive pairs, that UMI is
@@ -283,12 +323,23 @@ These denominators are different observation units and must not be
 interchanged. Removing low-support singleton clonotypes can reduce clonotype
 richness more than it reduces read-pair or UMI-family support.
 
+For QASAS or another matching analysis, an inclusive-table matched-clonotype
+count and a strict-table UMI-family percentage may be reported side by side
+only as explicitly named, different metrics. The former answers how many
+clonotypes were detected while retaining missing-only evidence; the latter
+answers what share of valid exact UMI families matched. They must not be
+presented as one common observation unit. A strict abundance calculation uses
+`umi_family_count` or `umi_family_percent`, never `read_pair_count` or
+`inclusive_support_count`.
+
 ## Data-retention invariants
 
 - UMI family counting never removes a read pair from `integrated.tsv`.
 - Rows without a countable BCR clonotype remain in `integrated.tsv` with an
   exclusion reason.
 - UMI-missing rows remain in pair-level outputs and their valid clonotype.
+- Strict workbooks omit missing-only clonotypes only from that summary view;
+  they do not remove or rewrite pair-level evidence.
 - The RG-compatible read-pair tables and UMI tables are produced from the same
   integrated rows, so their provenance cannot diverge through separate
   IgBLAST runs.
