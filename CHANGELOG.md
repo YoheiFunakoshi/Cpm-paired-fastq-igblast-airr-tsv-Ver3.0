@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.0.1 - 2026-08-17
+
+- `productive`と`final_productive`の定義、R1/R2の採用・fallback規則、空欄と
+  `false`の違い、実タンパク質発現との解釈境界を文書化。
+- 既存4つのExcelをread-pair/UMIとproductive限定の2×2として整理し、全列の意味、
+  目的別の使い分け、productive限定前後を同じ観測単位で比較する方法を追記。
+- 既存の包含UMI表を変更せず、valid exact UMI familyだけをcount・割合分母にする
+  `exact_umi_family_counts`と`final_productive_exact_umi_family_counts`をTSV/XLSXで追加。
+- exact UMI family表は`umi_family_count > 0`のclonotypeだけを5列で出力し、
+  `umi_family_percent`を各表のfamily合計から独立計算する。
+
 ## 3.0.0 - 2026-08-17
 
 - IgBLAST前のUMI/全長配列collapseを廃止し、全保持read pairを1回だけ注釈する方式へ変更。
@@ -7,6 +18,8 @@
 - 注釈後、各clonotype内の完全一致raw UMIを独立に数えるUMI countsを追加。
 - 同じUMI文字列が異なるclonotypeに現れた場合は、それぞれで1 familyとして保持。
 - UMI missing pairを削除せず、family数とは別のread-pair支持として出力。
+- UMI missingのpair単位率と、exact UMI縮約後のinclusive support内割合を分離して説明し、
+  検証runの15.535%と46.123%が異なる分母によることを文書化。
 - `integrated_counts` / `final_productive_counts`をRG互換のread-pair表とし、
   `umi_counts` / `final_productive_umi_counts`を別表として追加。
 - Ver2.0の`umiSeq5`、近傍UMI補正、複数modeの同時IgBLASTを標準処理と公開UIから削除。

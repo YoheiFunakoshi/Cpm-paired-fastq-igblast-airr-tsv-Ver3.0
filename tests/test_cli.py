@@ -8,14 +8,72 @@ from unittest.mock import Mock, patch
 
 from airr_igblast_paired import __version__
 from airr_igblast_paired.cli import build_parser
+from airr_igblast_paired.pipeline import MultiPipelineResult, NamedPipelineResult, PipelineResult
+from airr_igblast_paired.prepare import PrepareStats
 
 
 class CliTests(unittest.TestCase):
+    def test_run_reports_both_exact_umi_family_views(self) -> None:
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "run",
+                "--r1",
+                "sample_R1.fastq",
+                "--r2",
+                "sample_R2.fastq",
+                "--germline-db-v",
+                "v",
+                "--germline-db-d",
+                "d",
+                "--germline-db-j",
+                "j",
+                "--auxiliary-data",
+                "aux",
+                "--out",
+                "sample.airr.tsv",
+            ]
+        )
+        result = PipelineResult(
+            stats=PrepareStats(),
+            command=["igblastn"],
+            query_fasta=None,
+            output_tsv=Path("sample.airr.tsv"),
+            exact_umi_family_counts_tsv=Path("sample.exact_umi_family_counts.tsv"),
+            exact_umi_family_counts_xlsx=Path("sample.exact_umi_family_counts.xlsx"),
+            final_productive_exact_umi_family_counts_tsv=Path(
+                "sample.final_productive_exact_umi_family_counts.tsv"
+            ),
+            final_productive_exact_umi_family_counts_xlsx=Path(
+                "sample.final_productive_exact_umi_family_counts.xlsx"
+            ),
+        )
+        multi_result = MultiPipelineResult(
+            runs=(NamedPipelineResult("test", "", result),),
+            manifest_path=Path("sample.run.json"),
+        )
+        stderr = StringIO()
+
+        with (
+            patch(
+                "airr_igblast_paired.cli.run_cpm_umi_igblast_outputs",
+                return_value=multi_result,
+            ),
+            redirect_stderr(stderr),
+        ):
+            self.assertEqual(args.func(args), 0)
+
+        output = stderr.getvalue()
+        self.assertIn("sample.exact_umi_family_counts.tsv", output)
+        self.assertIn("sample.exact_umi_family_counts.xlsx", output)
+        self.assertIn("sample.final_productive_exact_umi_family_counts.tsv", output)
+        self.assertIn("sample.final_productive_exact_umi_family_counts.xlsx", output)
+
     def test_ver3_cli_defaults_to_one_annotation_run_with_exact_raw_umi(self) -> None:
         parser = build_parser()
 
         self.assertEqual(parser.prog, "cpm-paired-fastq-igblast-airr-tsv-v3")
-        self.assertEqual(__version__, "3.0.0")
+        self.assertEqual(__version__, "3.0.1")
 
         prepare_args = parser.parse_args(
             [

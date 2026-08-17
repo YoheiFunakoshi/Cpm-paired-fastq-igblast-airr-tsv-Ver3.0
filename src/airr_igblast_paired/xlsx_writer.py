@@ -15,6 +15,7 @@ def write_rows_xlsx(
     sheet_name: str = "Sheet1",
     header_labels: dict[str, str] | None = None,
     percentage_fields: set[str] | None = None,
+    column_widths: dict[str, float] | None = None,
 ) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -29,7 +30,13 @@ def write_rows_xlsx(
         archive.writestr("xl/styles.xml", _styles_xml())
         archive.writestr(
             "xl/worksheets/sheet1.xml",
-            _worksheet_xml(fieldnames, rows, header_labels or {}, percentage_fields or set()),
+            _worksheet_xml(
+                fieldnames,
+                rows,
+                header_labels or {},
+                percentage_fields or set(),
+                column_widths or {},
+            ),
         )
 
 
@@ -83,6 +90,7 @@ def _worksheet_xml(
     rows: list[dict[str, str]],
     header_labels: dict[str, str],
     percentage_fields: set[str],
+    column_widths: dict[str, float],
 ) -> str:
     max_row = len(rows) + 1
     max_col = max(1, len(fieldnames))
@@ -108,6 +116,14 @@ def _worksheet_xml(
         xml_rows.append(f'<row r="{row_number}">{"".join(cells)}</row>')
 
     auto_filter = f'<autoFilter ref="{dimension}"/>' if fieldnames else ""
+    columns = []
+    for index, field in enumerate(fieldnames, start=1):
+        width = column_widths.get(field)
+        if width is not None:
+            columns.append(
+                f'<col min="{index}" max="{index}" width="{width:g}" customWidth="1"/>'
+            )
+    columns_xml = f'<cols>{"".join(columns)}</cols>' if columns else ""
     return f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <dimension ref="{dimension}"/>
@@ -118,6 +134,7 @@ def _worksheet_xml(
     </sheetView>
   </sheetViews>
   <sheetFormatPr defaultRowHeight="15"/>
+  {columns_xml}
   <sheetData>
     {"".join(xml_rows)}
   </sheetData>
