@@ -93,6 +93,40 @@ CPM R2の301塩基には先頭38塩基のanchor/UMI/区切り配列が含まれ�
 - UMIを抽出できないpairや、`N`など曖昧塩基を含むpairも捨てません。
 - UMI集計によって`integrated.tsv`からread pairを削除しません。
 
+### 完全一致UMIの解釈上の注意
+
+Ver3.0は、各BCR clonotype内で観測された12塩基raw UMIを完全一致で数え、
+1塩基でも異なるUMIを別familyとします。この方法は単純で再現可能であり、真に異なる
+近接UMIを自動的に誤統合しません。一方、UMIの読み取り、PCR、UMI合成過程で生じた
+低頻度UMI、特にsingletonを追加familyとして数え、`umi_family_count`を過大にする
+可能性があります。反対に、すべての1塩基近傍UMIを統合すると、真に別の分子を
+誤統合する可能性があります。このため、Ver3.0の標準処理では近傍UMI補正を行いません。
+
+同じ検証runの探索的感度解析で、同一clonotypeを1 bundleとするUMI-tools
+directional風の1塩基近傍groupingを仮に適用すると、productive strict UMI family総数は74,968から
+67,503へ7,465 family（9.958%）減少しました。UMI missing pairを残す
+inclusive support総数は139,146から131,681へ5.365%減少しました。一方、上位5
+clonotypeの順位は不変で、上位100のうち96 clonotypeが共通でした。productiveかつ
+count対象で有効UMIを持つ348,928 pairのうち、代表以外の7,465 child UMI nodeを
+支持したpairは合計7,540 pair（2.161%）でした。そのchild node 7,465個のうち
+7,394個（99.05%）は、clonotype内で1 pairだけに支持されたsingletonでした。
+
+この探索的groupingでは、Hamming distance 1のUMI間に
+`count(A) >= 2 * count(B) - 1`を満たす向き`A -> B`のedgeを作り、count降順・同数は
+raw UMI文字列順の未割当nodeから、外向きedgeで到達できるnodeを同じgroupへ割り当てました。
+この条件では1 read対1 readの近傍UMIもgroup化され得ます。これは正式pipelineの規則ではありません。
+
+これらは別の集計仮定に対する**1検証runの感度**を示す値です。9.958%はUMI塩基や
+readのシーケンスエラー率ではなく、補正後の値が真の元分子数であることも意味しません。
+Ver3.0の正式出力は、補正していない完全一致raw UMI集計です。したがって、
+`umi_family_count`と`umi_family_percent`は観測されたexact UMI familyに基づく
+支持量であり、誤り補正済みの厳密な元分子数とは呼びません。
+
+完全一致法と近傍補正法はいずれも既存手法です。方式の違いは
+[UMI-tools公式説明](https://umi-tools.readthedocs.io/en/stable/the_methods.html)を、
+BCRでのUMI問題と任意補正の例は
+[pRESTO公式説明](https://presto.readthedocs.io/en/latest/examples/umi.html)を参照してください。
+
 UMIがないpairは元分子数へ補正できないため、列を分けます。
 
 ```text
@@ -198,7 +232,7 @@ productive限定の有無で分けた集計表です。
 | `final_productive_counts.xlsx` | read pair | 上記のうち`final_productive=true` | `read_pair_count`（割合列なし） | productive限定のRG比較 |
 | `umi_counts.xlsx` | exact raw UMI familyとUMI missing pair | 全採用pair | `inclusive_support_count` / `inclusive_support_percent` | CPMのUMI支持とPCR重複の確認 |
 | `final_productive_umi_counts.xlsx` | exact raw UMI familyとUMI missing pair | `final_productive=true`のpair | `inclusive_support_count` / `inclusive_support_percent` | productive pairから観測されたCPM UMI支持の主解析 |
-| `exact_umi_family_counts.xlsx` | exact raw UMI family | productive限定なしで`umi_family_count > 0`のclonotype | `umi_family_count` / `umi_family_percent` | UMI missingを割合から除いたstrictな分子支持評価 |
+| `exact_umi_family_counts.xlsx` | exact raw UMI family | productive限定なしで`umi_family_count > 0`のclonotype | `umi_family_count` / `umi_family_percent` | UMI missingを割合から除いたexact-UMI-family支持評価 |
 | `final_productive_exact_umi_family_counts.xlsx` | exact raw UMI family | `final_productive=true`のpairから得た`umi_family_count > 0`のclonotype | `umi_family_count` / `umi_family_percent` | productiveかつstrictなUMI-family感度解析 |
 
 どのExcelでも1行は次の3項目で定義した1 BCR clonotypeです。
@@ -249,7 +283,7 @@ strict UMI表は次の5列だけを収載します。
 | `unique_v_gene_set` / `unique_j_gene_set` | allele suffixを除去し正規化したV/J候補集合 |
 | `final_junction_aa (canonical)` | 採用されたcanonical junction AA |
 | `umi_family_count` | clonotype内のdistinctな完全一致raw 12-mer UMI数 |
-| `umi_family_percent` | strict表内の`umi_family_count`合計に占める割合。UMI missing pairは分子にも分母にも入らない |
+| `umi_family_percent` | strict表内の`umi_family_count`合計に占める割合。UMI missing pairはfamily countにも割合分母にも入らない |
 
 strict UMI表では`umi_family_count > 0`の行だけを残し、`umi_family_count`降順に並べます。
 productive strict表は、productive対象pairからUMI familyを独立に再計算した後に

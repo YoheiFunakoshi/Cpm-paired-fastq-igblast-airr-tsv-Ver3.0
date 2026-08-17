@@ -51,6 +51,7 @@ The standard integrated_counts output does not exclude by productive.
 The final_productive outputs are independently recalculated from pairs whose adopted junction_aa side has final_productive=true.
 The exact_umi_family_counts outputs contain only clonotypes with at least one valid exact UMI family. Their family percentages exclude UMI-missing pairs from both numerator and denominator; the inclusive umi_counts outputs remain unchanged.
 These five-column summaries are not a return of the legacy umiStrict branch and do not perform full-read Hamming-distance collapse.
+A one-base UMI difference is counted as a separate family. Exact counting may overcount low-support error-derived UMIs, but Ver3.0 does not apply neighbor correction because it could merge truly distinct UMIs. Exact UMI-family counts are not error-corrected exact molecule counts.
 For the productive, non-discarding CPM primary analysis, use final_productive_umi_counts.xlsx; compare hybrid support-based size and percentage with inclusive_support_count and inclusive_support_percent.
 Use final_productive_exact_umi_family_counts.xlsx as the strict valid-UMI-family sensitivity view. Inclusive support is a hybrid support measure, not an exact original-molecule count.
 
@@ -77,6 +78,7 @@ Temporary failed/interrupted work folders are under:
 - RG互換のread-pair出力を先に作り、各V/J/canonical junction-AA clonotype内でA/C/G/Tのみのexact raw 12-mer UMIを独立に数えます。
 - UMIなし、またはNなど曖昧塩基を含むペアも捨てず、UMI familyとは分けて保持します。
 - exact_umi_family_countsは有効UMI familyが1以上あるclonotypeだけを別表にし、UMI missingをfamily割合の分母へ加えません。包含UMI表は従来どおり残ります。
+- 1塩基違いは別familyです。完全一致法は誤り由来の低頻度UMIを過大計数し得ますが、真に異なる近接UMIの誤統合を避けるため、Ver3.0標準では近傍補正を行いません。exact UMI family数は誤り補正済みの厳密な元分子数ではありません。
 - productiveかつUMI missingを捨てない主解析はfinal_productive_umi_counts.xlsxを使い、包含hybrid支持量による大小はinclusive_support_count、割合はinclusive_support_percentを見ます。
 - final_productive_exact_umi_family_counts.xlsxはstrict感度解析です。inclusive supportはUMI familyとUMI missing pairを合算したhybrid支持量で、厳密な元分子数ではありません。
 - この5列の追加表は旧umiStrict処理の復活ではなく、全pairを注釈した後の追加集計です。
