@@ -111,7 +111,7 @@ umi_family_percent
 ```
 
 strict表では`umi_family_count > 0`のclonotypeだけを収載し、UMI missing pairは
-主countにも割合の分母にも加えません。したがって、UMI missingだけで支持された
+strict family countにも割合の分母にも加えません。したがって、UMI missingだけで支持された
 clonotypeはstrict表には現れません。元pairを`integrated.tsv`から削除する処理ではなく、
 既存の包含UMI表も変更しません。
 これは旧`umiStrict`の復活ではなく、全pairを注釈した後に作る5列の追加集計です。
@@ -192,14 +192,14 @@ sample.run.json                  # 完了manifest
 UMI missingを残す包含UMI、valid UMI familyだけを主支持量にするstrict UMIの3種類と、
 productive限定の有無で分けた集計表です。
 
-| Excel | 収載する主な支持量 | 対象 | 主な用途 |
-|---|---|---|---|
-| `integrated_counts.xlsx` | read pair | V/J/canonical junction AAを持つ全採用pair | RG互換のread-pair比較、全体QC |
-| `final_productive_counts.xlsx` | read pair | 上記のうち`final_productive=true` | productive限定のRG比較 |
-| `umi_counts.xlsx` | exact raw UMI familyとUMI missing pair | 全採用pair | CPMのUMI支持とPCR重複の確認 |
-| `final_productive_umi_counts.xlsx` | exact raw UMI familyとUMI missing pair | `final_productive=true`のpair | productive pairから観測されたCPM UMI支持の評価 |
-| `exact_umi_family_counts.xlsx` | exact raw UMI family | productive限定なしで`umi_family_count > 0`のclonotype | UMI missingを割合から除いたstrictな分子支持評価 |
-| `final_productive_exact_umi_family_counts.xlsx` | exact raw UMI family | `final_productive=true`のpairから得た`umi_family_count > 0`のclonotype | productiveかつstrictなUMI-family評価 |
+| Excel | 収載する主な支持量 | 対象 | 大小・割合を見る列 | 主な用途 |
+|---|---|---|---|---|
+| `integrated_counts.xlsx` | read pair | V/J/canonical junction AAを持つ全採用pair | `read_pair_count`（割合列なし） | RG互換のread-pair比較、全体QC |
+| `final_productive_counts.xlsx` | read pair | 上記のうち`final_productive=true` | `read_pair_count`（割合列なし） | productive限定のRG比較 |
+| `umi_counts.xlsx` | exact raw UMI familyとUMI missing pair | 全採用pair | `inclusive_support_count` / `inclusive_support_percent` | CPMのUMI支持とPCR重複の確認 |
+| `final_productive_umi_counts.xlsx` | exact raw UMI familyとUMI missing pair | `final_productive=true`のpair | `inclusive_support_count` / `inclusive_support_percent` | productive pairから観測されたCPM UMI支持の主解析 |
+| `exact_umi_family_counts.xlsx` | exact raw UMI family | productive限定なしで`umi_family_count > 0`のclonotype | `umi_family_count` / `umi_family_percent` | UMI missingを割合から除いたstrictな分子支持評価 |
+| `final_productive_exact_umi_family_counts.xlsx` | exact raw UMI family | `final_productive=true`のpairから得た`umi_family_count > 0`のclonotype | `umi_family_count` / `umi_family_percent` | productiveかつstrictなUMI-family感度解析 |
 
 どのExcelでも1行は次の3項目で定義した1 BCR clonotypeです。
 
@@ -239,7 +239,8 @@ read-pair表は次の10列です。
 
 `final_productive_umi_counts`では、productive対象pairだけからUMI set、missing数、割合を
 独立に再計算します。UMI表の既定順は`inclusive_support_count`降順です。
-UMI familyだけで順位を見たい場合は`umi_family_count`で並べ替えます。
+包含UMI表内でUMI family列を補助確認する場合は`umi_family_count`で並べ替えられますが、
+UMI missingを分母から除いた正式なfamily-only評価にはstrict UMI表を使います。
 
 strict UMI表は次の5列だけを収載します。
 
@@ -261,23 +262,87 @@ productive strict表は、productive対象pairからUMI familyを独立に再計
 同じUMIに`T`と`F`のpairが混在しても、`T`のpairが1つ以上あれば、そのUMIは
 productive対象内で1 familyとして数えられます。
 
+### clonotypeごとにUMIを数える具体例
+
+次のPattern 1～3が互いに異なるBCR clonotypeで、表示したpairがすべて
+`final_productive=true`だと仮定します。
+
+```text
+Pattern 1: UMI A, UMI A, UMI A, UMI B, missing, missing
+Pattern 2: UMI C, UMI C, UMI D, UMI E, UMI A, UMI A, missing
+Pattern 3: missing
+Patternなし: count可能なV/J/canonical junction AA keyを作れないpair
+```
+
+UMIはサンプル全体ではなく、各clonotype keyの中で独立して数えます。したがって、
+Pattern 1のUMI AとPattern 2のUMI Aは干渉せず、それぞれのPatternで1 familyです。
+
+UMI missingを捨てない包含UMI表では次の結果になります。
+
+| BCR clonotype | `umi_family_count` | `umi_missing_read_pair_count` | `inclusive_support_count` | `inclusive_support_percent` |
+|---|---:|---:|---:|---:|
+| Pattern 1 | 2（A、B） | 2 | 4 | 40.000000% |
+| Pattern 2 | 4（A、C、D、E） | 1 | 5 | 50.000000% |
+| Pattern 3 | 0 | 1 | 1 | 10.000000% |
+
+この例のinclusive support合計は`4 + 5 + 1 = 10`です。Pattern 3は有効UMIがなくても、
+missing pairを削除しないため包含UMI表に残ります。
+
+UMI missingを除外するstrict UMI表では次の結果になります。
+
+| BCR clonotype | `umi_family_count` | `umi_family_percent` |
+|---|---:|---:|
+| Pattern 1 | 2 | 33.333333% |
+| Pattern 2 | 4 | 66.666667% |
+
+strict表の分母は`2 + 4 = 6` familyです。Pattern 3は`umi_family_count = 0`なので
+strict表から除外され、BCRユニークclonotype数は3から2へ1つ減ります。ただし元pairは
+`integrated.tsv`や包含UMI表から削除されません。Patternなしのpairも`integrated.tsv`に
+除外理由付きで残りますが、6つのcounts Excelには入りません。
+この例では全pairがproductiveなので、productive限定なしの対応するUMI表にも同じ値が
+出ます。productive/nonproductiveが混在する実データでは、productive 3表を
+`final_productive=true`のpairだけから独立に再計算します。
+
+### 本解析で大小を見る主指標
+
+productiveなレパトアを主目的とし、UMI missingのclonotypeも捨てない場合、本解析の
+主解析表は`final_productive_umi_counts.xlsx`です。
+
+- 捨てない包含hybrid支持量による大小: `inclusive_support_count`
+- 表内での割合: `inclusive_support_percent`
+- UMI missingを除いたstrict感度解析: `final_productive_exact_umi_family_counts.xlsx`の
+  `umi_family_count` / `umi_family_percent`
+- RGとのread-pair単位の比較: `final_productive_counts.xlsx`の`read_pair_count`
+
+`inclusive_support_count`は有効exact UMI familyとUMI missing pairを合算した
+「捨てない包含支持量」であり、厳密な元分子数ではありません。試料間でUMI missing率が
+異なると大小・割合にbiasが入り得るため、UMI missing率とstrict感度解析も併記します。
+QASASなどでは、主解析の一致clonotype数と支持割合を次のように同じ包含表から算出します。
+
+```text
+一致clonotype数 = 一致したclonotype行の数
+一致inclusive support割合
+  = 一致行のinclusive_support_count合計
+    / 全行のinclusive_support_count合計 × 100
+```
+
+前者はclonotype種類数、後者は包含支持量の割合であり、同じ意味の数値ではありません。
+strict表の`umi_family_percent`は別名の感度解析として報告し、包含表のclonotype数と
+strict表の割合を同じ単位の1結果として混ぜません。
+
 目的別の確認先:
 
 - RGと同じread-pair単位: `integrated_counts.xlsx`
 - UMI missingも保持したCPMの包含UMI支持: `umi_counts.xlsx`
 - productiveなread-pairだけ: `final_productive_counts.xlsx`
-- productiveを主目的とするCPM解析の主解析候補: `final_productive_umi_counts.xlsx`
+- productiveを主目的としUMI missingも捨てないCPM解析の主解析: `final_productive_umi_counts.xlsx`
 - UMI missingを割合から完全に除くstrict評価: `exact_umi_family_counts.xlsx`
 - productiveかつstrictな評価: `final_productive_exact_umi_family_counts.xlsx`
 
 この場合も、通常表は除外されたpairやclonotypeを確認する監査・感度参照として残します。
 
-QASASなどで一致clonotype数と割合を評価するときは、指標名と分母を明示します。
-包含表のclonotype数はUMI missingだけのclonotypeも保持する検出指標、strict表の
-`umi_family_percent`は有効exact UMI familyだけを分母にした分子支持割合です。
-両者を併記することはできますが、同じ単位の1指標として混ぜません。strictな割合を
-求める場合はstrict表の`umi_family_count`または`umi_family_percent`を使用し、
-`read_pair_count`や`inclusive_support_count`をstrictな分子数として扱いません。
+strictな割合を求める場合はstrict表の`umi_family_count`または`umi_family_percent`を
+使用し、`read_pair_count`や`inclusive_support_count`をstrictな分子数として扱いません。
 
 productive限定による減少率はデータごとに異なります。必ず通常表とproductive表の
 clonotype数、`read_pair_count`合計、`umi_family_count`合計、

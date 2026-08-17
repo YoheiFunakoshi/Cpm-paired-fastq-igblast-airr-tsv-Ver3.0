@@ -38,7 +38,7 @@ YoheiFunakoshi/Cpm-paired-fastq-igblast-airr-tsv-Ver3.0
 | UMI family | 1つのBCR clonotype内で観測されたdistinctな有効raw UMI |
 | UMI missing pair | 有効12-mer UMIを得られなかったが保持されたpair |
 | inclusive UMI表 | UMI familyとUMI missing pairを分離列で残す包含集計 |
-| exact UMI family表 | 有効UMI familyだけを主countと割合分母にするstrict集計 |
+| exact UMI family表 | 有効UMI familyだけをstrict family countと割合分母にする集計 |
 
 read pair、UMI family、UMI missing pairは異なる観測単位である。
 
@@ -394,7 +394,53 @@ umi_missing_read_pair_count = 1
 inclusive_support_count = 5
 ```
 
-UMI AはPattern 1とPattern 2のそれぞれで1 familyである。どちらも捨てない。
+Pattern 3:
+
+```text
+missing
+```
+
+結果:
+
+```text
+read_pair_count = 1
+umi_family_count = 0
+umi_missing_read_pair_count = 1
+inclusive_support_count = 1
+```
+
+Pattern 1～3を互いに異なるBCR clonotypeとする。UMI AはPattern 1とPattern 2の
+それぞれで1 familyであり、clonotypeを越えて統合・相殺・共有UMI処理をしない。
+
+全pairが`final_productive=true`の場合、包含UMI表とstrict UMI表は次の値になる。
+
+包含UMI表:
+
+| BCR clonotype | `umi_family_count` | `umi_missing_read_pair_count` | `inclusive_support_count` | `inclusive_support_percent` |
+|---|---:|---:|---:|---:|
+| Pattern 1 | 2 | 2 | 4 | 40.000000% |
+| Pattern 2 | 4 | 1 | 5 | 50.000000% |
+| Pattern 3 | 0 | 1 | 1 | 10.000000% |
+
+strict UMI表:
+
+| BCR clonotype | `umi_family_count` | `umi_family_percent` |
+|---|---:|---:|
+| Pattern 1 | 2 | 33.333333% |
+| Pattern 2 | 4 | 66.666667% |
+
+包含UMI表の分母は`4 + 5 + 1 = 10`、strict UMI表の分母は`2 + 4 = 6`である。
+Pattern 3はUMI missingだけで支持されるため、包含UMI表では1支持として残り、
+strict UMI表では`umi_family_count = 0`のため収載しない。この例ではstrict表の
+BCR clonotype行数は3から2へ1つ減る。元pairは`integrated.tsv`および包含UMI表から
+削除しない。
+
+この例では全pairがproductiveなので、productive限定なしの対応するUMI表にも同じ値が
+出る。productive/nonproductiveが混在する場合は、productive 3表を
+`final_productive=true`のpairだけから独立に再集計する。
+
+count可能なV/J/canonical junction AA keyを作れないpairは、除外理由付きで
+`integrated.tsv`に保持するがcounts Excelへ収載しない。
 
 ## 13. 出力
 
@@ -424,7 +470,7 @@ sample.run.json
 Ver3.0は`_umiSeq5` / `_umiNoCollapse`などmode suffixを新規出力名に付けない。
 1回のIgBLASTから1組のpair-level/summary出力を作る。
 
-確認順:
+技術QC・監査の確認順（主解析の優先順位ではない）:
 
 1. `integrated_counts.xlsx`: RG互換read-pair比較
 2. `umi_counts.xlsx`: CPMのUMI familyとmissing支持
@@ -443,13 +489,38 @@ Ver3.0は`_umiSeq5` / `_umiNoCollapse`などmode suffixを新規出力名に付�
 | `exact_umi_family_counts.xlsx` | 5 | exact raw UMI family、同表family割合 | productive限定なしで`umi_family_count > 0` |
 | `final_productive_exact_umi_family_counts.xlsx` | 5 | productive対象のexact raw UMI family、同表family割合 | productive対象で`umi_family_count > 0` |
 
+本解析でproductiveなレパトアを主目的とし、UMI missingのclonotypeも捨てない場合、
+主解析表と大小・割合の指標を次のように定める。
+
+| 目的 | 使用するExcel | 大小 | 割合 |
+|---|---|---|---|
+| CPM productive主解析（捨てなし） | `final_productive_umi_counts.xlsx` | 包含hybrid支持量として`inclusive_support_count` | `inclusive_support_percent` |
+| productive strict感度解析 | `final_productive_exact_umi_family_counts.xlsx` | `umi_family_count` | `umi_family_percent` |
+| RGとのproductive read-pair比較 | `final_productive_counts.xlsx` | `read_pair_count` | 必要時に同表合計から別途計算 |
+
+`inclusive_support_count`はexact UMI familyとUMI missing pairを加えたhybrid支持量であり、
+厳密な元分子数ではない。試料間比較ではUMI missing率を併記し、strict感度解析で
+結論の安定性を確認する。QASAS等で包含表の一致clonotype数と割合を主解析とする場合、
+両方を包含表から次のように算出する。
+
+```text
+一致clonotype数 = 一致したclonotype行の数
+一致inclusive support割合
+  = sum(inclusive_support_count of matched clonotype rows)
+    / sum(inclusive_support_count of all clonotype rows) * 100
+```
+
+一致clonotype数は種類数、一致inclusive support割合は包含支持量の割合であり、
+同じ意味の数値ではない。strict表の`umi_family_percent`は別名の感度解析として
+併記できるが、包含表のclonotype数とstrict表の割合を同じ単位の1結果として混ぜない。
+
 `final_productive_umi_counts`は通常UMI表の行を単純削除するのではなく、productive対象pair
 だけからUMI set、missing数、inclusive support、percentを独立に再計算する。
 UMI family全体のconsensusをproductive判定する処理ではない。同じclonotype・同じUMIに
 productive/nonproductive pairが混在する場合、productive pairが1件以上あれば、そのUMIは
 productive subset内で1 familyとして数える。
 
-exact UMI family表では、UMI missing pairは主count・割合・分母へ入らない。
+exact UMI family表では、UMI missing pairはstrict family count・割合・分母へ入らない。
 `exact_umi_family_counts`のproductive限定なしは`final_productive=false`限定ではなく、
 通常counts対象のtrue/false/空欄を含む。
 包含表のclonotype数とexact表の`umi_family_percent`をQASAS等で併記する場合は、
