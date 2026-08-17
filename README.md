@@ -103,6 +103,51 @@ inclusive_support_count
 `inclusive_support_count`は、UMI familyと補正不能read pairを合わせた包含的な
 支持量です。厳密な分子数とは呼びません。
 
+### UMI missing率とinclusive support内の割合
+
+UMI missingについては、処理段階と分母が異なる次の値を区別します。
+
+```text
+全入力pairのUMI未割当率（prepare段階）
+  = umi_missing_pairs / total_pairs
+
+集計表内のpair単位UMI missing率
+  = sum(umi_missing_read_pair_count) / sum(read_pair_count)
+
+inclusive support内のUMI missing割合
+  = sum(umi_missing_read_pair_count) / sum(inclusive_support_count)
+```
+
+1回の検証runでは、全入力644,824 pairのうち96,030 pair（14.892%）に有効UMIを
+割り当てられませんでした。productive集計対象では、413,106 pairのうち348,928 pairは
+有効UMIあり、64,178 pairはUMI missingであり、pair単位のmissing率は15.535%です。
+有効UMIありの348,928 pairはclonotype内exact UMIで縮約すると74,968 UMI familyに
+なりますが、
+UMI missingの64,178 pairは補正できないため1 pairずつ保持します。その結果、
+
+```text
+inclusive_support_count = 74,968 + 64,178 = 139,146
+inclusive support内のUMI missing割合 = 64,178 / 139,146 = 46.123%
+```
+
+となります。**46.123%はUMI抽出失敗率ではありません。実際のproductive pair単位の
+UMI missing率は15.535%です。** UMIあり側だけが約4.65 pair/familyへ圧縮されるため、
+hybridなinclusive supportの中ではmissing側の比率が大きく見えます。
+
+この検証runのraw FASTQを別途監査した結果、R2はすべて301塩基で、anchorを
+通過した後の12-merに`N`などを
+含む例はありませんでした。96,030 pairはすべて、期待anchorと3塩基以上異なり、
+うち89,481 pair（93.18%）は6塩基以上異なりました。anchorを確認できなかったため
+UMIを安全に採用しなかったものであり、「UMI 12塩基そのものを読めなかった」とは
+断定しません。大半は単純な1～2塩基の読み誤りだけでは説明しにくく、期待と異なる
+library構造、位置ずれ、off-targetなども候補ですが、このFASTQだけでは原因を確定しません。
+
+UMI/anchor抽出率に全方式共通の正常値はありません。約85%のpairに有効UMIを割り当てた
+このrunは、直ちに解析失敗とみなす極端な値ではありませんが、同一protocolの検体間で
+pair単位のmissing率を比較します。missing率が検体間で大きく異なる場合、
+`inclusive_support_count`の比較にもbiasが入り得るため、library構造、anchor設定、
+read向き、品質を再確認します。
+
 ## 主な出力
 
 例として出力基準名を`sample.airr.tsv`とした場合:
@@ -306,3 +351,9 @@ BCR解析とは目的が異なります。
 - [UMI-tools: gene/feature内でのUMI grouping/counting](https://umi-tools.readthedocs.io/en/latest/Single_cell_tutorial.html)
 - [MiXCR: targeted BCR UMI workflow](https://mixcr.com/mixcr/guides/generic-umi-bcr/)
 - [pRESTO: consensus-first BCR workflowの例](https://presto.readthedocs.io/en/stable/workflows/Stern2014_Workflow.html)
+- [abstar: BCRの保存配列を照合できないreadもUMI空欄で注釈を継続](https://abstar.readthedocs.io/en/stable/umis.html)
+- [MIGEC: barcode抽出率が低い場合は原因を調査するというQC方針](https://migec.readthedocs.io/_/downloads/en/latest/pdf/)
+- [10x Genomicsの別方式における参考値: valid UMI >75%](https://assets.ctfassets.net/an68im79xiti/1R7z9gj36IkuqRpdo2W8Un/fe76580732b3de5c449340278975a658/CG000475_TechNote_ChromiumNextGEM_SC3-_CMOWebSummary_Rev_B.pdf)
+
+最後の数値はsingle-cell 3' multiplexingという別方式の参考値であり、CPM BCR法の
+合否基準として直接流用しません。

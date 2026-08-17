@@ -272,6 +272,40 @@ inclusive_support_count
 `inclusive_support_count`はUMI familyと補正不能read pairを加えたhybridな包含支持量で、
 厳密な分子数ではない。必ず構成列とともに解釈する。
 
+UMI missingは処理段階と分母が異なる次の値を混同しない。
+
+```text
+全入力pairのUMI未割当率（prepare段階）
+  = umi_missing_pairs / total_pairs
+
+集計表内のpair単位UMI missing率
+  = sum(umi_missing_read_pair_count) / sum(read_pair_count)
+
+inclusive support内のUMI missing割合
+  = sum(umi_missing_read_pair_count) / sum(inclusive_support_count)
+```
+
+検証runのproductive対象では、`read_pair_count=413,106`、
+`umi_known_read_pair_count=348,928`、`umi_missing_read_pair_count=64,178`で、
+pair単位のUMI missing率は15.535%であった。有効UMI pairをexact UMIで数えると
+`umi_family_count=74,968`、`inclusive_support_count=139,146`となるため、
+inclusive support内のUMI missing割合は46.123%となった。これはUMI抽出失敗率ではなく、
+有効UMI側だけがclonotype内exact UMIで約4.65 pair/familyへ縮約され、PCR重複の影響を
+抑えることで生じる分母効果である。
+
+同runの全入力pairでは96,030 / 644,824 = 14.892%がUMI missingであった。
+raw FASTQを別途監査した結果、全R2は301塩基で、anchor通過後に非ACGT UMIとなった
+pairは0であり、全missing pairは
+期待anchorとの距離が既定許容2を超えたことによる。うち89,481 / 96,030 = 93.18%は
+6塩基以上異なった。したがって「UMI塩基を読めなかった」ではなく、「期待anchorを
+確認できずUMIを安全に割り当てなかった」と記述する。単純な1～2塩基の読み誤りだけで
+大半を説明せず、library構造、位置ずれ、off-targetなども候補とするが原因は断定しない。
+
+この実測値は1 runのQC例であり、全protocol共通の正常範囲を定義しない。同一protocolの
+検体間でpair単位のmissing率を比較し、大きな差がある場合はlibrary構造、anchor設定、
+read向き、品質を再確認する。missing率が異なる検体間では、hybridな
+`inclusive_support_count`の比較にbiasが入り得る。
+
 `inclusive_support_percent`は表内の`inclusive_support_count`合計に対する割合を
 小数点以下6桁でTSVへ書く。XLSXでは0～1の数値percent cellとして保存する。
 

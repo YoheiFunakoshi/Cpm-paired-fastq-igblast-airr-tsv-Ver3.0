@@ -14,6 +14,8 @@
 - 注釈後、各clonotype内の完全一致raw UMIを独立に数えるUMI countsを追加。
 - 同じUMI文字列が異なるclonotypeに現れた場合は、それぞれで1 familyとして保持。
 - UMI missing pairを削除せず、family数とは別のread-pair支持として出力。
+- UMI missingのpair単位率と、exact UMI縮約後のinclusive support内割合を分離して説明し、
+  検証runの15.535%と46.123%が異なる分母によることを文書化。
 - `integrated_counts` / `final_productive_counts`をRG互換のread-pair表とし、
   `umi_counts` / `final_productive_umi_counts`を別表として追加。
 - Ver2.0の`umiSeq5`、近傍UMI補正、複数modeの同時IgBLASTを標準処理と公開UIから削除。

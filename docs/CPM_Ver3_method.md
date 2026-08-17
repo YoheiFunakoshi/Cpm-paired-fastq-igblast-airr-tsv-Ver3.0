@@ -120,6 +120,65 @@ inclusive_support_count
 It must not be described as a strict molecule count. The two components and
 `read_pair_count` are always reported separately.
 
+### Two different UMI-missing percentages
+
+The extraction and workbook metrics come from different processing stages and
+use different denominators:
+
+```text
+input-pair UMI-assignment failure rate (prepare stage)
+  = umi_missing_pairs / total_pairs
+
+workbook pair-level UMI-missing rate
+  = sum(umi_missing_read_pair_count) / sum(read_pair_count)
+
+UMI-missing share of inclusive support
+  = sum(umi_missing_read_pair_count) / sum(inclusive_support_count)
+```
+
+In one validation run, 96,030 of 644,824 input pairs (14.892%) had no usable
+UMI assignment. In the productive subset, 64,178 of 413,106 countable pairs
+(15.535%) were UMI-missing. The 348,928 UMI-known pairs were reduced to 74,968
+clonotype-local exact UMI families, whereas all 64,178 UMI-missing pairs
+remained one-for-one:
+
+```text
+inclusive_support_count = 74,968 + 64,178 = 139,146
+UMI-missing share of inclusive support = 64,178 / 139,146 = 46.123%
+```
+
+Thus, 46.123% is not the UMI extraction-failure rate. It is a denominator
+effect caused by collapsing only the UMI-known side (approximately 4.65 known
+pairs per family) while retaining missing pairs without molecular correction.
+
+In a separate audit of the raw FASTQ, all R2 reads in this validation run were
+301 nt. No anchor-passing read had an ambiguous 12-mer; every missing
+assignment resulted from the expected anchor
+exceeding the allowed two mismatches, and 89,481 of 96,030 missing pairs
+(93.18%) differed at six or more anchor positions. This is reported as failure
+to confirm the expected anchor, not as proof that the 12 UMI bases themselves
+were unreadable. Ordinary one- or two-base sequencing errors alone are
+unlikely to explain most missing assignments; alternative library structures,
+positional shifts, and off-target products are possible, but this FASTQ alone
+does not establish the cause.
+
+There is no assay-independent normal UMI-extraction rate. Approximately 85%
+usable UMI pairs in this run is not treated as an automatic run failure, but
+the pair-level missing rate must be compared across samples produced with the
+same protocol. Large between-sample differences can bias
+`inclusive_support_count` and require review of library structure, anchor
+settings, read orientation, and sequencing quality. MIGEC similarly recommends
+investigating the cause of low barcode extraction. The BCR-oriented abstar
+workflow likewise leaves the UMI
+empty but continues normal annotation when a conserved pattern cannot be
+matched. A separate 10x Genomics single-cell assay lists >75% valid UMIs as
+ideal, but that assay-specific value is context only and is not used as a CPM
+BCR acceptance threshold.
+
+References: [abstar UMI support](https://abstar.readthedocs.io/en/stable/umis.html),
+[MIGEC documentation](https://migec.readthedocs.io/_/downloads/en/latest/pdf/),
+and [10x Genomics assay-specific QC example](https://assets.ctfassets.net/an68im79xiti/1R7z9gj36IkuqRpdo2W8Un/fe76580732b3de5c449340278975a658/CG000475_TechNote_ChromiumNextGEM_SC3-_CMOWebSummary_Rev_B.pdf).
+
 ## Examples
 
 For one clonotype:
